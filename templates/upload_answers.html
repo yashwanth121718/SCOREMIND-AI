@@ -1,44 +1,65 @@
 {% extends "base.html" %}
 
-{% block title %}Submit Answer Script - EvalAI{% endblock %}
+{% block title %}Upload Student Answer Script - ScoreMind AI{% endblock %}
 
 {% block content %}
-<div style="max-width: 750px; margin: 20px auto;">
+<div style="max-width: 800px; margin: 20px auto;">
     <div class="glass-panel" style="padding: 35px;">
         <div style="margin-bottom: 25px;">
-            <a href="{{ url_for('student.dashboard') }}" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">
-                <i class="fas fa-arrow-left me-1"></i> Back to Student Portal
+            <a href="{{ url_for('teacher.dashboard') }}" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">
+                <i class="fas fa-arrow-left me-1"></i> Back to Teacher Dashboard
             </a>
-            <h2 style="margin-top: 10px;">Submit Descriptive Answer Script</h2>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Submit your answer in plain text or upload a document/script file.</p>
+            <h2 style="margin-top: 10px;"><i class="fas fa-file-upload me-2" style="color:var(--primary-color);"></i> Upload Student Answer Script</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Teachers can upload typed or handwritten answer scripts for students to run automatic OCR scanning and AI evaluation.</p>
         </div>
 
-        <!-- Question Prompt Box -->
-        <div style="background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border-left: 4px solid var(--primary-color); margin-bottom: 25px;">
-            <h4 style="color: var(--primary-color); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px;">Question</h4>
-            <p style="font-size: 1.05rem; font-weight: 500; line-height: 1.5;">{{ question.question_text }}</p>
-            <span style="display: block; margin-top: 8px; font-size: 0.85rem; color: var(--warning-color);">
-                Max Marks: {{ question.max_marks }}
-            </span>
-        </div>
-
-        <form method="POST" action="{{ url_for('student.submit_answer', question_id=question.question_id) }}" enctype="multipart/form-data">
-            <!-- Option 1: Direct Text Area -->
+        <form method="POST" action="{{ url_for('teacher.upload_script') }}" enctype="multipart/form-data">
+            
+            <!-- Select Student -->
             <div class="form-group">
-                <label><i class="fas fa-edit me-1"></i> Option A: Type / Paste Descriptive Answer</label>
-                <textarea name="answer_text" class="form-control-custom" style="min-height: 180px;" placeholder="Write your complete descriptive answer here..."></textarea>
+                <label><i class="fas fa-user-graduate me-1"></i> Select Student *</label>
+                <select name="student_id" class="form-control-custom" required>
+                    <option value="">-- Choose Student --</option>
+                    {% for s in students %}
+                        <option value="{{ s.id }}" {% if selected_student_id == s.id %}selected{% endif %}>
+                            {{ s.name }} ({{ s.email }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Select Question -->
+            <div class="form-group">
+                <label><i class="fas fa-question-circle me-1"></i> Select Exam Question *</label>
+                <select name="question_id" class="form-control-custom" required>
+                    <option value="">-- Choose Question --</option>
+                    {% for q in questions %}
+                        <option value="{{ q.question_id }}" {% if selected_question and selected_question.question_id == q.question_id %}selected{% endif %}>
+                            {{ q.exam.subject.subject_code if q.exam and q.exam.subject else '' }} - {{ q.question_text[:70] }}... (Max Marks: {{ q.max_marks }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Option A: Direct Answer Text -->
+            <div class="form-group">
+                <label><i class="fas fa-edit me-1"></i> Option A: Type / Paste Student Descriptive Answer</label>
+                <textarea name="answer_text" class="form-control-custom" style="min-height: 160px;" placeholder="Paste student answer text here..."></textarea>
             </div>
 
             <div style="text-align: center; margin: 20px 0; color: var(--text-muted); font-size: 0.9rem;">— OR —</div>
 
-            <!-- Option 2: Upload File -->
+            <!-- Option B: Upload Handwritten / Digital Script File -->
             <div class="form-group">
-                <label><i class="fas fa-file-upload me-1"></i> Option B: Upload Answer Script File (.txt, .pdf, .docx, .png, .jpg)</label>
+                <label><i class="fas fa-file-image me-1"></i> Option B: Upload Handwritten or Printed Script File (.pdf, .png, .jpg, .txt)</label>
                 <input type="file" name="uploaded_file" class="form-control-custom" onchange="validateFileInput(this)">
+                <small style="color: var(--text-muted); display: block; margin-top: 5px;">
+                    <i class="fas fa-magic me-1" style="color:var(--primary-color);"></i> OCR Engine automatically extracts text from handwritten images and PDFs.
+                </small>
             </div>
 
-            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 14px; margin-top: 15px; font-size: 1rem;">
-                <i class="fas fa-paper-plane me-2"></i> Submit & Run Instant AI Evaluation
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 14px; margin-top: 20px; font-size: 1.05rem;">
+                <i class="fas fa-brain me-2"></i> Upload Script & Trigger AI Evaluation
             </button>
         </form>
     </div>

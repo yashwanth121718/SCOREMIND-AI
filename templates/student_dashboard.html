@@ -11,7 +11,7 @@
             <div>
                 <span class="role-pill role-student" style="margin-bottom: 8px; display: inline-block;">ScoreMind Academic Level {{ gamification.level }}</span>
                 <h2><i class="fas fa-user-graduate me-2" style="color:var(--primary-color);"></i> Welcome, {{ current_user.name }}!</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Track your AI evaluation scores, study roadmaps, and gamification rewards.</p>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Track your teacher-evaluated answer scripts, AI scores, study roadmaps, and certificates.</p>
             </div>
 
             <!-- Gamification Badges & XP -->
@@ -74,9 +74,9 @@
 
     </div>
 
-    <!-- Questions & Submissions List -->
+    <!-- Assigned Questions & Evaluated Answer Scripts List -->
     <div style="display: flex; flex-direction: column; gap: 20px;">
-        <h3 style="margin-bottom: 5px;"><i class="fas fa-list-check me-2" style="color: var(--primary-color);"></i> Assigned Descriptive Exam Questions</h3>
+        <h3 style="margin-bottom: 5px;"><i class="fas fa-list-check me-2" style="color: var(--primary-color);"></i> Evaluated Exam Questions & Answer Scripts</h3>
 
         {% for q in questions %}
             {% set ans = ans_map.get(q.question_id) %}
@@ -99,7 +99,7 @@
                     <div style="background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 15px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
                             <span style="font-size: 0.85rem; color: var(--text-muted);">
-                                <i class="fas fa-check-circle style='color:var(--accent-color)' me-1"></i> Submitted on {{ ans.submitted_at.strftime('%Y-%m-%d %H:%M') if ans.submitted_at else '' }}
+                                <i class="fas fa-check-circle style='color:var(--accent-color)' me-1"></i> Uploaded by Teacher on {{ ans.submitted_at.strftime('%Y-%m-%d %H:%M') if ans.submitted_at else '' }}
                             </span>
                             
                             {% if ev %}
@@ -137,10 +137,7 @@
                     </div>
                 {% else %}
                     <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-                        <span class="badge-custom badge-warning">Pending Submission</span>
-                        <a href="{{ url_for('student.submit_answer', question_id=q.question_id) }}" class="btn-primary-custom">
-                            <i class="fas fa-paper-plane me-1"></i> Write / Upload Answer Script
-                        </a>
+                        <span class="badge-custom badge-warning">Script Pending Upload / Evaluation by Teacher</span>
                     </div>
                 {% endif %}
             </div>

@@ -244,6 +244,7 @@ def dashboard():
 
     answers = StudentAnswer.query.filter(StudentAnswer.question_id.in_(q_ids)).all() if q_ids else []
     evaluations = Evaluation.query.filter(Evaluation.question_id.in_(q_ids)).all() if q_ids else []
+    students = User.query.filter_by(role='student').all()
 
     student_scores = {}
     for ev in evaluations:
@@ -272,9 +273,73 @@ def dashboard():
                            questions=questions,
                            answers=answers,
                            evaluations=evaluations,
+                           students=students,
                            top_students=top_students,
                            weak_topics=weak_topics,
                            all_teachers=all_teachers)
+
+@teacher_bp.route('/upload-script', methods=['GET', 'POST'])
+@teacher_bp.route('/upload-script/<int:question_id>', methods=['GET', 'POST'])
+@login_required
+@teacher_required
+def upload_script(question_id=None):
+    students = User.query.filter_by(role='student').all()
+    questions = Question.query.all()
+    selected_question = db.session.get(Question, question_id) if question_id else None
+
+    if request.method == 'POST':
+        student_id = request.form.get('student_id')
+        q_id = request.form.get('question_id') or question_id
+        answer_text = request.form.get('answer_text', '').strip()
+        file = request.files.get('uploaded_file')
+
+        if not student_id or not q_id:
+            flash('Please select both a student and an exam question.', 'warning')
+            return redirect(url_for('teacher.upload_script', question_id=question_id))
+
+        student = db.session.get(User, int(student_id))
+        target_q = db.session.get(Question, int(q_id))
+
+        saved_filename = None
+        if file and allowed_file(file.filename):
+            saved_filename = secure_filename(f"script_q{q_id}_u{student_id}_{file.filename}")
+            os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+            filepath = os.path.join(Config.UPLOAD_FOLDER, saved_filename)
+            file.save(filepath)
+
+            # Extract text via OCR
+            ocr_text = extract_text_from_image(filepath)
+            if ocr_text:
+                answer_text = ocr_text if not answer_text else f"{answer_text}\n{ocr_text}"
+
+        if not answer_text and not saved_filename:
+            flash('Please enter answer text or upload an answer script file.', 'warning')
+            return redirect(url_for('teacher.upload_script', question_id=q_id))
+
+        existing_ans = StudentAnswer.query.filter_by(student_id=student_id, question_id=q_id).first()
+        if not existing_ans:
+            existing_ans = StudentAnswer(student_id=student_id, question_id=q_id)
+            db.session.add(existing_ans)
+
+        existing_ans.answer_text = answer_text
+        if saved_filename:
+            existing_ans.uploaded_file = saved_filename
+
+        db.session.commit()
+
+        try:
+            eval_rec = evaluate_single_answer(existing_ans.answer_id)
+            flash(f'Answer script for student "{student.name}" uploaded, OCR scanned, and evaluated by AI! Score: {eval_rec.obtained_marks}/{target_q.max_marks}', 'success')
+        except Exception as e:
+            flash(f'Script uploaded successfully for {student.name}. Evaluation queued.', 'info')
+
+        return redirect(url_for('teacher.dashboard'))
+
+    return render_template('upload_answers.html',
+                           students=students,
+                           questions=questions,
+                           selected_question=selected_question,
+                           selected_student_id=None)
 
 @teacher_bp.route('/subject/add', methods=['POST'])
 @login_required
@@ -380,7 +445,6 @@ def dashboard():
     ans_map = {ans.question_id: ans for ans in my_answers}
     eval_map = {ev.question_id: ev for ev in my_evaluations}
 
-    # Advanced ScoreMind Features for Student Portal
     prediction = predict_student_performance(current_user.id)
     gamification = calculate_student_gamification(current_user.id)
     revision_plan = generate_revision_plan(current_user.id)
@@ -402,52 +466,11 @@ def dashboard():
 
 @student_bp.route('/submit/<int:question_id>', methods=['GET', 'POST'])
 @login_required
-@student_required
 def submit_answer(question_id):
-    question = db.session.get(Question, question_id)
-    if not question:
-        flash('Question not found.', 'danger')
-        return redirect(url_for('student.dashboard'))
-
-    if request.method == 'POST':
-        answer_text = request.form.get('answer_text', '').strip()
-        file = request.files.get('uploaded_file')
-
-        saved_filename = None
-        if file and allowed_file(file.filename):
-            saved_filename = secure_filename(f"script_q{question_id}_u{current_user.id}_{file.filename}")
-            os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
-            filepath = os.path.join(Config.UPLOAD_FOLDER, saved_filename)
-            file.save(filepath)
-
-            ocr_text = extract_text_from_image(filepath)
-            if ocr_text:
-                answer_text = ocr_text if not answer_text else f"{answer_text}\n{ocr_text}"
-
-        if not answer_text and not saved_filename:
-            flash('Please enter text answer or upload a valid answer script file.', 'warning')
-            return redirect(url_for('student.submit_answer', question_id=question_id))
-
-        existing_ans = StudentAnswer.query.filter_by(student_id=current_user.id, question_id=question_id).first()
-        if not existing_ans:
-            existing_ans = StudentAnswer(student_id=current_user.id, question_id=question_id)
-            db.session.add(existing_ans)
-
-        existing_ans.answer_text = answer_text
-        if saved_filename:
-            existing_ans.uploaded_file = saved_filename
-
-        db.session.commit()
-
-        try:
-            evaluate_single_answer(existing_ans.answer_id)
-            flash('Answer script scanned with OCR and evaluated by ScoreMind AI successfully!', 'success')
-        except Exception as e:
-            flash('Answer submitted. Evaluation queued.', 'info')
-
-        return redirect(url_for('student.dashboard'))
-
-    return render_template('upload_answers.html', question=question)
+    if current_user.role in ['teacher', 'admin']:
+        return redirect(url_for('teacher.upload_script', question_id=question_id))
+    flash('Answer script uploads are managed by teachers.', 'info')
+    return redirect(url_for('student.dashboard'))
 
 @student_bp.route('/result/<int:eval_id>')
 @login_required

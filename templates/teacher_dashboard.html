@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Teacher Control Panel - EvalAI{% endblock %}
+{% block title %}Teacher Control Panel - ScoreMind AI{% endblock %}
 
 {% block content %}
 <div style="max-width: 1200px; margin: 0 auto;">
@@ -8,7 +8,12 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
         <div>
             <h2><i class="fas fa-chalkboard-teacher me-2" style="color:var(--primary-color);"></i> Teacher Evaluation Hub</h2>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Manage subjects, create exams, set model answers, and evaluate student scripts with AI.</p>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Manage subjects, create exams, set model answers, upload student answer scripts, and run AI evaluations.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('teacher.upload_script') }}" class="btn-primary-custom" style="padding: 12px 24px; font-size: 0.95rem; box-shadow: 0 4px 20px rgba(0,229,255,0.3);">
+                <i class="fas fa-file-upload me-2"></i> Upload Student Answer Script
+            </a>
         </div>
     </div>
 
@@ -148,18 +153,21 @@
     <div class="table-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <h3><i class="fas fa-list-check me-2" style="color: var(--primary-color);"></i> Student Answer Script Submissions</h3>
-            {% if exams %}
-                <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="{{ url_for('teacher.upload_script') }}" class="btn-primary-custom" style="padding: 6px 14px; font-size: 0.8rem;">
+                    <i class="fas fa-upload me-1"></i> Upload Script
+                </a>
+                {% if exams %}
                     {% for e in exams %}
                         <a href="{{ url_for('teacher.trigger_exam_evaluation', exam_id=e.exam_id) }}" class="btn-primary-custom" style="padding: 6px 14px; font-size: 0.8rem;">
-                            <i class="fas fa-wand-magic-sparkles"></i> Evaluate All "{{ e.exam_name }}"
+                            <i class="fas fa-wand-magic-sparkles me-1"></i> Evaluate All "{{ e.exam_name }}"
                         </a>
                         <a href="{{ url_for('teacher.export_excel', exam_id=e.exam_id) }}" class="btn-secondary-custom" style="padding: 6px 14px; font-size: 0.8rem; border-color: var(--accent-color); color: var(--accent-color);">
-                            <i class="fas fa-file-excel"></i> Export Excel
+                            <i class="fas fa-file-excel me-1"></i> Export Excel
                         </a>
                     {% endfor %}
-                </div>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
 
         <table class="custom-table">
@@ -221,7 +229,7 @@
                 {% else %}
                     <tr>
                         <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                            No student answer scripts submitted yet.
+                            No student answer scripts submitted yet. Click "Upload Script" above to upload student scripts.
                         </td>
                     </tr>
                 {% endfor %}
