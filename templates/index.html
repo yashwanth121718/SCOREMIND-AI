@@ -1,23 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}EvalAI - Automated Answer Evaluation System{% endblock %}
+{% block title %}ScoreMind AI - Intelligent Educational Assessment Platform{% endblock %}
 
 {% block content %}
 <div style="max-width: 1100px; margin: 0 auto; padding-top: 20px;">
 
     <!-- Hero Section -->
     <div class="glass-panel" style="padding: 50px 40px; text-align: center; margin-bottom: 40px; position: relative; overflow: hidden;">
-        <h1 style="font-size: 3rem; font-weight: 800; line-height: 1.2; margin-bottom: 20px;">
-            Automated Descriptive Answer Evaluation <br> Powered by <span style="color: var(--primary-color);">AI & NLP</span>
+        <span class="role-pill role-teacher" style="margin-bottom: 12px; display: inline-block; padding: 4px 14px;">Next-Gen Assessment Engine</span>
+        <h1 style="font-size: 3.2rem; font-weight: 800; line-height: 1.2; margin-bottom: 20px;">
+            <span style="color: var(--primary-color);">ScoreMind AI</span> <br> Automated Descriptive Evaluation & Learning Platform
         </h1>
-        <p style="font-size: 1.15rem; color: var(--text-muted); max-width: 750px; margin: 0 auto 30px auto; line-height: 1.6;">
-            Transform descriptive exam grading with instant AI evaluation. Evaluates semantic similarity, matches key concepts, detects structural grammar quality, allocates fair partial marks, and generates PDF/Excel reports.
+        <p style="font-size: 1.15rem; color: var(--text-muted); max-width: 780px; margin: 0 auto 30px auto; line-height: 1.6;">
+            ScoreMind AI transforms academic assessment by evaluating handwritten and typed descriptive answer scripts using Natural Language Processing. Automatically grades semantic similarity, extracts key technical terms, detects plagiarism, predicts student performance, and produces QR-verified PDF certificates.
         </p>
 
         <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
             {% if not current_user.is_authenticated %}
                 <a href="{{ url_for('auth.login') }}" class="btn-primary-custom" style="padding: 14px 32px; font-size: 1.05rem;">
-                    <i class="fas fa-rocket"></i> Launch Demo App
+                    <i class="fas fa-rocket"></i> Launch ScoreMind AI App
                 </a>
                 <a href="{{ url_for('auth.register') }}" class="btn-secondary-custom" style="padding: 14px 32px; font-size: 1.05rem;">
                     <i class="fas fa-user-plus"></i> Create Account
@@ -27,6 +28,51 @@
                     <i class="fas fa-tachometer-alt"></i> Go to Dashboard
                 </a>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- Vision Statement Banner -->
+    <div class="glass-panel" style="padding: 30px; margin-bottom: 40px; border-left: 5px solid var(--primary-color);">
+        <h3 style="color: var(--primary-color); margin-bottom: 10px; font-size: 1.2rem; text-transform: uppercase;">
+            <i class="fas fa-eye me-2"></i> Vision Statement
+        </h3>
+        <p style="font-size: 1.05rem; line-height: 1.6; color: var(--text-main);">
+            "ScoreMind AI is an intelligent, AI-powered educational assessment platform that automates answer script evaluation, provides fair and transparent scoring, detects plagiarism, delivers personalized feedback, and helps students improve through actionable learning insights. It aims to reduce teachers' workload while improving the quality, consistency, and speed of academic assessment."
+        </p>
+    </div>
+
+    <!-- Hackathon Feature Showcase Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 40px;">
+        <div class="glass-panel" style="padding: 26px;">
+            <i class="fas fa-file-signature" style="font-size: 2.2rem; color: var(--primary-color); margin-bottom: 15px;"></i>
+            <h3 style="margin-bottom: 10px;">OCR & Handwriting Recognition</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
+                Scans uploaded handwritten answer sheets via Tesseract OCR and evaluates extracted text automatically.
+            </p>
+        </div>
+
+        <div class="glass-panel" style="padding: 26px;">
+            <i class="fas fa-shield-alt" style="font-size: 2.2rem; color: var(--secondary-color); margin-bottom: 15px;"></i>
+            <h3 style="margin-bottom: 10px;">Plagiarism Detection Engine</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
+                Cross-compares student submissions to flag copied sentences and calculate similarity ratios between peers.
+            </p>
+        </div>
+
+        <div class="glass-panel" style="padding: 26px;">
+            <i class="fas fa-chart-line" style="font-size: 2.2rem; color: var(--accent-color); margin-bottom: 15px;"></i>
+            <h3 style="margin-bottom: 10px;">AI Performance Predictor</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
+                Predicts final semester marks, pass probability, class rank, and generates personalized revision roadmaps.
+            </p>
+        </div>
+
+        <div class="glass-panel" style="padding: 26px;">
+            <i class="fas fa-qrcode" style="font-size: 2.2rem; color: var(--warning-color); margin-bottom: 15px;"></i>
+            <h3 style="margin-bottom: 10px;">QR Verified Certificates</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
+                Generates printable PDF grade sheets and downloadable Certificates of Excellence verified via QR Codes.
+            </p>
         </div>
     </div>
 
@@ -51,33 +97,6 @@
                 <p style="margin-top: 8px; font-size: 0.9rem; font-weight: 600;">john@student.edu</p>
                 <p style="font-size: 0.8rem; color: var(--text-muted);">Pass: student123</p>
             </div>
-        </div>
-    </div>
-
-    <!-- Feature Pillars -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 40px;">
-        <div class="glass-panel" style="padding: 26px;">
-            <i class="fas fa-microchip" style="font-size: 2.2rem; color: var(--primary-color); margin-bottom: 15px;"></i>
-            <h3 style="margin-bottom: 10px;">TF-IDF & Cosine Similarity</h3>
-            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
-                Compares vector embeddings of student answers against model answers to compute exact semantic alignment.
-            </p>
-        </div>
-
-        <div class="glass-panel" style="padding: 26px;">
-            <i class="fas fa-tags" style="font-size: 2.2rem; color: var(--secondary-color); margin-bottom: 15px;"></i>
-            <h3 style="margin-bottom: 10px;">Keyword Matching Engine</h3>
-            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
-                Extracts required technical terminology and identifies missing or present concepts automatically.
-            </p>
-        </div>
-
-        <div class="glass-panel" style="padding: 26px;">
-            <i class="fas fa-file-pdf" style="font-size: 2.2rem; color: var(--accent-color); margin-bottom: 15px;"></i>
-            <h3 style="margin-bottom: 10px;">PDF & Excel Export</h3>
-            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
-                Generates instant printable grade report sheets for students and comprehensive Excel marksheets for faculty.
-            </p>
         </div>
     </div>
 

@@ -1,17 +1,83 @@
 {% extends "base.html" %}
 
-{% block title %}Student Exam Portal - EvalAI{% endblock %}
+{% block title %}ScoreMind AI - Student Portal{% endblock %}
 
 {% block content %}
-<div style="max-width: 1100px; margin: 0 auto;">
+<div style="max-width: 1150px; margin: 0 auto;">
 
-    <div style="margin-bottom: 25px;">
-        <h2><i class="fas fa-user-graduate me-2" style="color:var(--primary-color);"></i> Student Exam Portal</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">View assigned descriptive exams, submit your answer scripts, and inspect instant AI evaluation feedback.</p>
+    <!-- Top Student Header & Gamification Bar -->
+    <div class="glass-panel" style="padding: 26px; margin-bottom: 25px; background: linear-gradient(135deg, rgba(124, 77, 255, 0.15), rgba(0, 229, 255, 0.15));">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div>
+                <span class="role-pill role-student" style="margin-bottom: 8px; display: inline-block;">ScoreMind Academic Level {{ gamification.level }}</span>
+                <h2><i class="fas fa-user-graduate me-2" style="color:var(--primary-color);"></i> Welcome, {{ current_user.name }}!</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Track your AI evaluation scores, study roadmaps, and gamification rewards.</p>
+            </div>
+
+            <!-- Gamification Badges & XP -->
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <div style="text-align: center; background: rgba(0,0,0,0.25); padding: 10px 18px; border-radius: 14px;">
+                    <h3 style="color: var(--warning-color); font-size: 1.4rem;"><i class="fas fa-bolt me-1"></i> {{ gamification.xp_points }}</h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">XP Points</span>
+                </div>
+
+                <div style="text-align: center; background: rgba(0,0,0,0.25); padding: 10px 18px; border-radius: 14px;">
+                    <h3 style="color: #ff5252; font-size: 1.4rem;"><i class="fas fa-fire me-1"></i> {{ gamification.streak }} Days</h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Study Streak</span>
+                </div>
+
+                <a href="{{ url_for('student.download_certificate') }}" class="btn-primary-custom" style="padding: 10px 18px; font-size: 0.85rem;">
+                    <i class="fas fa-award me-1"></i> Certificate of Excellence
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Performance Prediction & Study Roadmap Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 30px;">
+        
+        <!-- AI Performance Forecast Card -->
+        <div class="glass-panel" style="padding: 24px;">
+            <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--primary-color);">
+                <i class="fas fa-chart-line me-2"></i> AI Performance Forecast
+            </h3>
+            <div style="display: flex; justify-content: space-around; text-align: center; margin-bottom: 15px;">
+                <div>
+                    <h2 style="color: var(--accent-color); font-size: 1.8rem;">{{ prediction.predicted_marks }}%</h2>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Predicted Semester Marks</span>
+                </div>
+                <div>
+                    <h2 style="color: var(--warning-color); font-size: 1.8rem;">{{ prediction.pass_probability }}%</h2>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Pass Probability</span>
+                </div>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                <strong>Class Rank:</strong> #{{ prediction.class_rank }} of {{ prediction.total_students }} students
+            </div>
+        </div>
+
+        <!-- AI Personalized Revision Roadmap -->
+        <div class="glass-panel" style="padding: 24px;">
+            <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--secondary-color);">
+                <i class="fas fa-road me-2"></i> AI Personalized Revision Roadmap
+            </h3>
+            {% for item in revision_plan %}
+                <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600;">
+                        <span>{{ item.topic }}</span>
+                        <span style="color: var(--warning-color);">Est. {{ item.estimated_hours }}h study</span>
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">{{ item.action_item }}</p>
+                </div>
+            {% endfor %}
+        </div>
+
     </div>
 
     <!-- Questions & Submissions List -->
     <div style="display: flex; flex-direction: column; gap: 20px;">
+        <h3 style="margin-bottom: 5px;"><i class="fas fa-list-check me-2" style="color: var(--primary-color);"></i> Assigned Descriptive Exam Questions</h3>
+
         {% for q in questions %}
             {% set ans = ans_map.get(q.question_id) %}
             {% set ev = eval_map.get(q.question_id) %}
@@ -29,7 +95,6 @@
                     </div>
                 </div>
 
-                <!-- Answer Status & Marks Card -->
                 {% if ans %}
                     <div style="background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 15px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">

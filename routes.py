@@ -9,14 +9,17 @@ from evaluation import evaluate_single_answer, evaluate_exam_answers
 from reports import generate_student_pdf_report, generate_exam_excel_report
 from config import Config
 
-# Advanced Features Imports
+# ScoreMind AI Advanced Features Imports
 from advanced_features import (
     extract_text_from_image,
     check_plagiarism_for_answer,
     generate_ai_rubric,
     predict_student_performance,
     generate_verification_qr_code,
-    process_chatbot_query
+    process_chatbot_query,
+    calculate_student_gamification,
+    generate_revision_plan,
+    generate_student_certificate
 )
 
 auth_bp = Blueprint('auth', __name__)
@@ -317,7 +320,6 @@ def add_question():
     keywords = request.form.get('keywords', '').strip()
     max_marks = float(request.form.get('max_marks') or 10.0)
 
-    # Optional AI Auto Rubric Generation
     if not model_answer and question_text:
         rubric_data = generate_ai_rubric(question_text, max_marks)
         model_answer = rubric_data['model_answer']
@@ -378,8 +380,10 @@ def dashboard():
     ans_map = {ans.question_id: ans for ans in my_answers}
     eval_map = {ev.question_id: ev for ev in my_evaluations}
 
-    # Performance Prediction for Student
+    # Advanced ScoreMind Features for Student Portal
     prediction = predict_student_performance(current_user.id)
+    gamification = calculate_student_gamification(current_user.id)
+    revision_plan = generate_revision_plan(current_user.id)
 
     total_assigned = len(questions)
     total_submitted = len(my_answers)
@@ -392,6 +396,8 @@ def dashboard():
                            eval_map=eval_map,
                            my_evaluations=my_evaluations,
                            prediction=prediction,
+                           gamification=gamification,
+                           revision_plan=revision_plan,
                            progress_pct=round(progress_pct, 1))
 
 @student_bp.route('/submit/<int:question_id>', methods=['GET', 'POST'])
@@ -414,7 +420,6 @@ def submit_answer(question_id):
             filepath = os.path.join(Config.UPLOAD_FOLDER, saved_filename)
             file.save(filepath)
 
-            # OCR Answer Sheet & Handwriting Scanner
             ocr_text = extract_text_from_image(filepath)
             if ocr_text:
                 answer_text = ocr_text if not answer_text else f"{answer_text}\n{ocr_text}"
@@ -436,7 +441,7 @@ def submit_answer(question_id):
 
         try:
             evaluate_single_answer(existing_ans.answer_id)
-            flash('Answer script scanned with OCR and evaluated by AI successfully!', 'success')
+            flash('Answer script scanned with OCR and evaluated by ScoreMind AI successfully!', 'success')
         except Exception as e:
             flash('Answer submitted. Evaluation queued.', 'info')
 
@@ -456,7 +461,6 @@ def view_result(eval_id):
         flash('Access denied.', 'danger')
         return redirect(url_for('student.dashboard'))
 
-    # Check plagiarism details & QR code
     plag_info = check_plagiarism_for_answer(eval_rec.answer_id)
     qr_code_b64 = generate_verification_qr_code(eval_id)
 
@@ -480,6 +484,17 @@ def download_pdf(eval_id):
     except Exception as e:
         flash(f'PDF generation failed: {str(e)}', 'danger')
         return redirect(url_for('student.view_result', eval_id=eval_id))
+
+@student_bp.route('/download-certificate')
+@login_required
+@student_required
+def download_certificate():
+    try:
+        filepath = generate_student_certificate(current_user.id)
+        return send_file(filepath, as_attachment=True)
+    except Exception as e:
+        flash(f'Certificate generation failed: {str(e)}', 'danger')
+        return redirect(url_for('student.dashboard'))
 
 
 # ================= REST API ENDPOINTS & AI CHATBOT =================
@@ -505,3 +520,8 @@ def generate_rubric_api():
     
     rubric = generate_ai_rubric(q_text, max_m)
     return jsonify({'status': 'success', 'data': rubric})
+
+@api_bp.route('/study-plan/<int:student_id>', methods=['GET'])
+def study_plan_api(student_id):
+    plan = generate_revision_plan(student_id)
+    return jsonify({'status': 'success', 'student_id': student_id, 'plan': plan})
