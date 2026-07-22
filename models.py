@@ -145,6 +145,7 @@ class Evaluation(db.Model):
     similarity_score = db.Column(db.Float, nullable=False, default=0.0)  # Percentage 0-100
     grammar_score = db.Column(db.Float, nullable=False, default=0.0)     # Percentage 0-100
     keyword_score = db.Column(db.Float, nullable=False, default=0.0)     # Percentage 0-100
+    confidence_score = db.Column(db.Float, nullable=False, default=90.0)  # AI Confidence percentage
     obtained_marks = db.Column(db.Float, nullable=False, default=0.0)
     
     feedback = db.Column(db.Text, nullable=True)
@@ -164,6 +165,7 @@ class Evaluation(db.Model):
             'similarity_score': round(self.similarity_score, 2),
             'grammar_score': round(self.grammar_score, 2),
             'keyword_score': round(self.keyword_score, 2),
+            'confidence_score': round(self.confidence_score, 2),
             'obtained_marks': round(self.obtained_marks, 2),
             'feedback': self.feedback,
             'matched_keywords': self.matched_keywords,

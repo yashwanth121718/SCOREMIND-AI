@@ -15,10 +15,8 @@ def evaluate_single_answer(answer_id: int) -> Evaluation:
     if not question:
         raise ValueError(f"Question with ID {answer.question_id} not found.")
 
-    # Read answer text from direct entry or file if available
     text_content = answer.answer_text or ""
     
-    # Run AI evaluation engine
     res = ai_evaluator.evaluate_answer(
         model_answer=question.model_answer,
         student_answer=text_content,
@@ -29,7 +27,6 @@ def evaluate_single_answer(answer_id: int) -> Evaluation:
         gram_weight=Config.GRAMMAR_WEIGHT
     )
 
-    # Check if an existing evaluation record exists
     eval_record = Evaluation.query.filter_by(answer_id=answer_id).first()
     if not eval_record:
         eval_record = Evaluation(
@@ -42,6 +39,7 @@ def evaluate_single_answer(answer_id: int) -> Evaluation:
     eval_record.similarity_score = res['similarity_score']
     eval_record.grammar_score = res['grammar_score']
     eval_record.keyword_score = res['keyword_score']
+    eval_record.confidence_score = res.get('confidence_score', 90.0)
     eval_record.obtained_marks = res['obtained_marks']
     eval_record.feedback = res['feedback']
     eval_record.matched_keywords = res['matched_keywords']

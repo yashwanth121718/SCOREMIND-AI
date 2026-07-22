@@ -31,22 +31,28 @@
 
             <!-- Score Metric Progress Indicators -->
             <div style="display: flex; gap: 25px; flex-wrap: wrap;">
-                <div style="text-align: center; min-width: 110px;">
+                <div style="text-align: center; min-width: 100px;">
                     <h3 style="color: var(--primary-color); font-size: 1.8rem; font-weight: 700;">{{ eval.similarity_score }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Semantic Match</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-primary" style="width: {{ eval.similarity_score }}%;"></div></div>
                 </div>
 
-                <div style="text-align: center; min-width: 110px;">
+                <div style="text-align: center; min-width: 100px;">
                     <h3 style="color: var(--secondary-color); font-size: 1.8rem; font-weight: 700;">{{ eval.keyword_score }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Keywords Score</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-warning" style="width: {{ eval.keyword_score }}%;"></div></div>
                 </div>
 
-                <div style="text-align: center; min-width: 110px;">
+                <div style="text-align: center; min-width: 100px;">
                     <h3 style="color: var(--accent-color); font-size: 1.8rem; font-weight: 700;">{{ eval.grammar_score }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Grammar Quality</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-success" style="width: {{ eval.grammar_score }}%;"></div></div>
+                </div>
+
+                <div style="text-align: center; min-width: 100px;">
+                    <h3 style="color: #ffd54f; font-size: 1.8rem; font-weight: 700;">{{ eval.confidence_score|round(1) }}%</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">AI Confidence</p>
+                    <div class="progress-bar-container"><div class="progress-bar-fill fill-warning" style="width: {{ eval.confidence_score }}%;"></div></div>
                 </div>
             </div>
         </div>

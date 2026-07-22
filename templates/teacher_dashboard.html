@@ -12,9 +12,43 @@
         </div>
     </div>
 
-    <!-- Quick Action Modal Modifiers & Forms Grid -->
+    <!-- Analytics & Weak Topic Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
+        <!-- Top Students Card -->
+        <div class="glass-panel" style="padding: 22px;">
+            <h3 style="margin-bottom: 12px; font-size: 1.05rem; color: var(--accent-color);">
+                <i class="fas fa-trophy me-2"></i> Top Performing Students
+            </h3>
+            <ul style="list-style: none; padding: 0;">
+                {% for name, total in top_students %}
+                    <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); font-size: 0.9rem;">
+                        <span><i class="fas fa-user-circle me-2" style="color: var(--primary-color);"></i> {{ name }}</span>
+                        <strong>{{ total|round(1) }} pts</strong>
+                    </li>
+                {% else %}
+                    <li style="color: var(--text-muted); font-size: 0.85rem;">No evaluation data available.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Weak Topic Analysis Card -->
+        <div class="glass-panel" style="padding: 22px;">
+            <h3 style="margin-bottom: 12px; font-size: 1.05rem; color: var(--warning-color);">
+                <i class="fas fa-exclamation-triangle me-2"></i> Weak Concept / Topic Analysis
+            </h3>
+            {% for item in weak_topics %}
+                <div style="margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                    <p style="font-size: 0.85rem; margin-bottom: 4px;">{{ item.question_text }}</p>
+                    <span class="badge-custom badge-warning">Avg: {{ item.avg_score }} / {{ item.max_marks }}</span>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 0.85rem;">All question topics show strong student mastery!</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Create Subject & Exam Forms Grid -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 30px;">
-        
         <!-- Create Subject Form -->
         <div class="glass-panel" style="padding: 24px;">
             <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--primary-color);">
@@ -64,7 +98,6 @@
                 </button>
             </form>
         </div>
-
     </div>
 
     <!-- Create Question & Model Answer Section -->

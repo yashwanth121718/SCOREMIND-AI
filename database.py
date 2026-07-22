@@ -8,18 +8,17 @@ def init_db(app):
     """
     Initializes database with MySQL primary attempt and automatic SQLite fallback.
     """
-    # 1. Try MySQL First
     try:
         engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
         connection = engine.connect()
         connection.close()
         app.config['SQLALCHEMY_DATABASE_URI'] = Config.SQLALCHEMY_DATABASE_URI
-        print(" Connected successfully to MySQL Database!")
+        print("[+] Connected successfully to MySQL Database!")
     except Exception as e:
-        print(f"⚠️ MySQL Connection failed ({e}). Falling back to SQLite database...")
+        print(f"[!] MySQL Connection failed: {e}. Falling back to SQLite database...")
         os.makedirs(os.path.dirname(Config.SQLITE_DB_PATH), exist_ok=True)
         app.config['SQLALCHEMY_DATABASE_URI'] = Config.SQLITE_DATABASE_URI
-        print(f" SQLite Database connected at {Config.SQLITE_DB_PATH}")
+        print(f"[+] SQLite Database connected at {Config.SQLITE_DB_PATH}")
 
     db.init_app(app)
 
@@ -33,11 +32,11 @@ def seed_sample_data_if_empty():
     Seeds database with initial hackathon demonstration data if empty.
     """
     if User.query.first() is not None:
-        return  # Data already exists
+        return
 
-    print(" Database empty. Seeding sample hackathon data...")
+    print("[+] Database empty. Seeding sample hackathon data...")
 
-    # 1. Users (Admin, 2 Teachers, 3 Students)
+    # 1. Users
     admin = User(name="System Admin", email="admin@eval.ai", role="admin")
     admin.set_password("admin123")
 
@@ -73,7 +72,7 @@ def seed_sample_data_if_empty():
     db.session.add_all([exam1, exam2])
     db.session.commit()
 
-    # 4. Questions with Model Answers & Keywords
+    # 4. Questions
     q1 = Question(
         exam_id=exam1.exam_id,
         question_text="Explain the concept of Binary Search Trees (BST) and state its average-case search time complexity.",
@@ -101,7 +100,7 @@ def seed_sample_data_if_empty():
     db.session.add_all([q1, q2, q3])
     db.session.commit()
 
-    # 5. Sample Student Answers
+    # 5. Student Answers
     ans1 = StudentAnswer(
         student_id=student1.id,
         question_id=q1.question_id,
@@ -123,7 +122,7 @@ def seed_sample_data_if_empty():
     db.session.add_all([ans1, ans2, ans3])
     db.session.commit()
 
-    # 6. Pre-evaluate sample answers using AI module
+    # 6. Pre-evaluate
     for ans in [ans1, ans2, ans3]:
         q = Question.query.get(ans.question_id)
         res = ai_evaluator.evaluate_answer(
@@ -140,6 +139,7 @@ def seed_sample_data_if_empty():
             similarity_score=res['similarity_score'],
             grammar_score=res['grammar_score'],
             keyword_score=res['keyword_score'],
+            confidence_score=res.get('confidence_score', 92.5),
             obtained_marks=res['obtained_marks'],
             feedback=res['feedback'],
             matched_keywords=res['matched_keywords'],
@@ -148,4 +148,4 @@ def seed_sample_data_if_empty():
         db.session.add(evaluation)
 
     db.session.commit()
-    print(" Sample hackathon data seeded successfully!")
+    print("[+] Sample hackathon data seeded successfully!")

@@ -1,16 +1,16 @@
 import re
 import math
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 
 # Try importing NLTK, sklearn, sentence-transformers gracefully with robust fallbacks
 try:
     import nltk
-    from nltk.corpus import stopwords
+    from nltk.corpus import stopwords, wordnet
     from nltk.tokenize import word_tokenize, sent_tokenize
     from nltk.stem import PorterStemmer, WordNetLemmatizer
     
     # Download essential NLTK data packages silently
-    for resource in ['punkt', 'stopwords', 'wordnet']:
+    for resource in ['punkt', 'stopwords', 'wordnet', 'omw-1.4']:
         try:
             nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
         except LookupError:
@@ -27,7 +27,22 @@ try:
 except Exception:
     HAS_SKLEARN = False
 
-# Basic Stopwords Fallback if NLTK is absent
+# Fallback technical synonym dictionary for domain term matching
+TECH_SYNONYMS = {
+    'node': {'element', 'vertex', 'point', 'item'},
+    'tree': {'hierarchy', 'structure'},
+    'search': {'lookup', 'find', 'locate', 'retrieve'},
+    'complexity': {'time', 'efficiency', 'cost', 'bounds'},
+    'divide': {'split', 'partition', 'decompose'},
+    'conquer': {'solve', 'combine'},
+    'transaction': {'operation', 'action', 'execution'},
+    'isolation': {'concurrency', 'independence', 'separation'},
+    'durability': {'persistence', 'permanence', 'saved'},
+    'atomicity': {'indivisible', 'all-or-nothing'},
+    'consistency': {'validity', 'integrity', 'correctness'},
+    'skewed': {'unbalanced', 'asymmetric', 'linear'}
+}
+
 BASIC_STOPWORDS = {
     'a', 'an', 'the', 'and', 'or', 'but', 'if', 'because', 'as', 'what',
     'which', 'this', 'that', 'these', 'those', 'then', 'just', 'so', 'than',
@@ -36,15 +51,15 @@ BASIC_STOPWORDS = {
     'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once',
     'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each',
     'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only',
-    'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just',
-    'don', 'should', 'now', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-    'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'it', 'its'
+    'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should',
+    'now', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had'
 }
 
 
 class AnswerEvaluatorAI:
     def __init__(self):
         self.stemmer = PorterStemmer() if HAS_NLTK else None
+        self.lemmatizer = WordNetLemmatizer() if HAS_NLTK else None
 
     def preprocess_text(self, text: str) -> List[str]:
         """
@@ -53,7 +68,6 @@ class AnswerEvaluatorAI:
         if not text:
             return []
             
-        # Lowercase & sanitize
         clean_text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text.lower())
         
         if HAS_NLTK:
@@ -63,10 +77,8 @@ class AnswerEvaluatorAI:
             tokens = clean_text.split()
             stop_words = BASIC_STOPWORDS
 
-        # Filter stop words and short tokens
         filtered_tokens = [w for w in tokens if w not in stop_words and len(w) > 1]
         
-        # Stemming
         if self.stemmer:
             processed = [self.stemmer.stem(w) for w in filtered_tokens]
         else:
@@ -74,24 +86,42 @@ class AnswerEvaluatorAI:
             
         return processed
 
+    def get_synonyms(self, word: str) -> Set[str]:
+        """
+        Retrieves synonyms using NLTK WordNet or tech synonym dictionary fallback.
+        """
+        syns = set()
+        w_lower = word.lower()
+        
+        if w_lower in TECH_SYNONYMS:
+            syns.update(TECH_SYNONYMS[w_lower])
+
+        if HAS_NLTK:
+            try:
+                for syn in wordnet.synsets(w_lower):
+                    for l in syn.lemmas():
+                        syns.add(l.name().replace('_', ' ').lower())
+            except Exception:
+                pass
+
+        return syns
+
     def calculate_tfidf_similarity(self, text1: str, text2: str) -> float:
         """
         Calculate TF-IDF Cosine Similarity between model answer and student answer.
-        Returns percentage (0.0 to 100.0).
         """
         if not text1 or not text2:
             return 0.0
             
         if HAS_SKLEARN:
             try:
-                vectorizer = TfidfVectorizer(stop_words='english')
+                vectorizer = TfidfVectorizer(stop_words='english', ngram_range=(1, 2))
                 tfidf_matrix = vectorizer.fit_transform([text1, text2])
                 sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
                 return float(sim * 100.0)
             except Exception:
                 pass
 
-        # Jaccard / Token Overlap Fallback if sklearn vectorizer fails on edge cases
         tokens1 = set(self.preprocess_text(text1))
         tokens2 = set(self.preprocess_text(text2))
         
@@ -100,36 +130,42 @@ class AnswerEvaluatorAI:
             
         intersection = tokens1.intersection(tokens2)
         union = tokens1.union(tokens2)
-        
         return (len(intersection) / len(union)) * 100.0
 
     def evaluate_keywords(self, model_answer: str, student_answer: str, target_keywords: str = "") -> Tuple[float, List[str], List[str]]:
         """
-        Extract key terms and compare with student answer.
-        Returns: (keyword_score_percent, matched_keywords, missing_keywords)
+        Extract key terms and compare with student answer including synonym matching.
         """
-        # Determine explicit or auto-extracted keywords
         kw_list = []
         if target_keywords and target_keywords.strip():
             kw_list = [k.strip().lower() for k in target_keywords.split(',') if k.strip()]
         
         if not kw_list:
-            # Auto-extract top content words from model answer
             processed_model = self.preprocess_text(model_answer)
-            # Find unique non-duplicate key words
             kw_list = list(dict.fromkeys(processed_model))[:12]
 
         if not kw_list:
             return 100.0, [], []
 
         student_lower = student_answer.lower()
+        student_tokens = set(self.preprocess_text(student_answer))
+        
         matched = []
         missing = []
 
         for kw in kw_list:
-            # Match stem or whole phrase in student answer
             stem_kw = self.stemmer.stem(kw) if self.stemmer else kw
-            if kw in student_lower or stem_kw in student_lower:
+            syns = self.get_synonyms(kw)
+            
+            # Check exact match, stem match, or synonym match
+            is_matched = (
+                kw in student_lower or 
+                stem_kw in student_lower or 
+                any(s in student_lower for s in syns) or
+                bool(syns.intersection(student_tokens))
+            )
+            
+            if is_matched:
                 matched.append(kw)
             else:
                 missing.append(kw)
@@ -139,40 +175,57 @@ class AnswerEvaluatorAI:
         
         return round(keyword_score, 2), matched, missing
 
-    def evaluate_grammar_and_quality(self, student_answer: str, model_answer: str) -> float:
+    def evaluate_grammar_and_quality(self, student_answer: str, model_answer: str) -> Tuple[float, List[str]]:
         """
-        Evaluate structural quality, length proportion, punctuation, and sentence clarity.
-        Returns score percentage (0.0 to 100.0).
+        Evaluate structural quality, length proportion, punctuation, and grammar suggestions.
         """
         if not student_answer or not student_answer.strip():
-            return 0.0
+            return 0.0, ["No answer provided."]
 
         words = student_answer.strip().split()
         word_count = len(words)
         model_word_count = len(model_answer.strip().split())
 
-        if word_count == 0:
-            return 0.0
+        suggestions = []
 
-        # 1. Word Count Ratio (Penalize extremely short answers relative to model answer)
+        # 1. Length Check
         target_len = max(model_word_count, 15)
         length_ratio = min(word_count / target_len, 1.2)
         length_score = min(length_ratio * 100.0, 100.0)
 
-        # 2. Basic Punctuation & Capitalization Check
+        if word_count < target_len * 0.5:
+            suggestions.append(f"Answer is concise ({word_count} words vs ~{model_word_count} expected). Elaborate on core definitions.")
+
+        # 2. Capitalization & Sentence Punctuation
         sentences = [s.strip() for s in re.split(r'[.!?]+', student_answer) if s.strip()]
         num_sentences = max(len(sentences), 1)
 
         cap_sentences = sum(1 for s in sentences if s[0].isupper())
         capitalization_ratio = cap_sentences / num_sentences
 
+        if capitalization_ratio < 0.7:
+            suggestions.append("Ensure sentences start with capital letters for professional presentation.")
+
         has_ending_punct = 1.0 if re.search(r'[.!?]$', student_answer.strip()) else 0.7
+        if has_ending_punct < 1.0:
+            suggestions.append("End complete thoughts and paragraphs with proper punctuation.")
 
         structure_score = (capitalization_ratio * 50.0) + (has_ending_punct * 50.0)
 
-        # Weighted final grammar & quality score
         final_quality = (0.60 * length_score) + (0.40 * structure_score)
-        return min(max(round(final_quality, 2), 10.0), 100.0)
+        return min(max(round(final_quality, 2), 10.0), 100.0), suggestions
+
+    def calculate_confidence_score(self, sim_score: float, kw_score: float, gram_score: float, word_count: int) -> float:
+        """
+        Computes AI evaluation confidence score (0-100%).
+        """
+        base_confidence = 70.0
+        kw_contrib = (kw_score / 100.0) * 15.0
+        sim_contrib = (sim_score / 100.0) * 10.0
+        len_contrib = min((word_count / 20.0) * 5.0, 5.0)
+        
+        confidence = base_confidence + kw_contrib + sim_contrib + len_contrib
+        return min(round(confidence, 1), 99.5)
 
     def generate_feedback(self, 
                           similarity_score: float, 
@@ -181,38 +234,53 @@ class AnswerEvaluatorAI:
                           obtained_marks: float, 
                           max_marks: float,
                           matched_kw: List[str], 
-                          missing_kw: List[str]) -> str:
+                          missing_kw: List[str],
+                          grammar_suggestions: List[str]) -> Tuple[str, List[str], List[str], List[str]]:
         """
-        Generate comprehensive, student-friendly AI feedback breakdown.
+        Generate detailed breakdown: (feedback_text, strengths, weaknesses, suggestions)
         """
         percentage = (obtained_marks / max_marks) * 100.0 if max_marks > 0 else 0.0
 
-        feedback_parts = []
+        strengths = []
+        weaknesses = []
+        suggestions = []
 
         if percentage >= 85:
-            feedback_parts.append("🌟 **Excellent Work!** Your answer covers all major concepts thoroughly with strong structural clarity.")
+            feedback_head = "🌟 **Outstanding Answer!** Thorough explanation with strong concept retention."
+            strengths.append("High semantic alignment with official model answer.")
+            strengths.append("Includes core domain terminology accurately.")
         elif percentage >= 70:
-            feedback_parts.append("👍 **Good Answer!** You demonstrated a solid understanding of the topic with minor omissions.")
+            feedback_head = "👍 **Good Answer!** Demonstrates solid understanding with minor missing details."
+            strengths.append("Understands fundamental concepts.")
+            if missing_kw:
+                weaknesses.append(f"Omitted key technical terms: {', '.join(missing_kw[:3])}")
         elif percentage >= 50:
-            feedback_parts.append("⚠️ **Average Attempt.** Your answer addresses key ideas but lacks essential technical depth or complete explanations.")
+            feedback_head = "⚠️ **Satisfactory Attempt.** Addresses basic ideas but lacks required technical depth."
+            weaknesses.append("Superficial coverage of model answer requirements.")
+            if missing_kw:
+                weaknesses.append(f"Missing crucial keywords: {', '.join(missing_kw[:4])}")
         else:
-            feedback_parts.append("❌ **Needs Significant Improvement.** The response is incomplete or strays from the model answer expectations.")
+            feedback_head = "❌ **Needs Improvement.** Incomplete or off-topic explanation."
+            weaknesses.append("Significant divergence from expected reference answer.")
 
-        # Breakdown highlights
-        feedback_parts.append(f"• **Semantic Match**: {similarity_score:.1f}% alignment with model answer.")
-        
         if matched_kw:
-            matched_str = ", ".join(matched_kw[:6])
-            feedback_parts.append(f"• **Key Concepts Covered**: Successfully included {matched_str}.")
-            
+            strengths.append(f"Successfully incorporated: {', '.join(matched_kw[:5])}")
+
         if missing_kw:
-            missing_str = ", ".join(missing_kw[:6])
-            feedback_parts.append(f"• **Missing Keywords**: Consider adding details regarding: {missing_str}.")
+            suggestions.append(f"Revise and include key concepts: {', '.join(missing_kw[:5])}")
 
-        if grammar_score < 60:
-            feedback_parts.append("• **Grammar & Formatting Tip**: Ensure answers use proper capitalization, complete sentences, and sufficient length.")
+        suggestions.extend(grammar_suggestions)
 
-        return "\n".join(feedback_parts)
+        # Build composite text string
+        feedback_parts = [feedback_head]
+        feedback_parts.append(f"• **Semantic Match**: {similarity_score:.1f}%")
+        feedback_parts.append(f"• **Keyword Match**: {keyword_score:.1f}%")
+        if strengths:
+            feedback_parts.append(f"• **Key Strength**: {strengths[0]}")
+        if weaknesses:
+            feedback_parts.append(f"• **Area for Growth**: {weaknesses[0]}")
+
+        return "\n".join(feedback_parts), strengths, weaknesses, suggestions
 
     def evaluate_answer(self, 
                         model_answer: str, 
@@ -223,55 +291,52 @@ class AnswerEvaluatorAI:
                         kw_weight: float = 0.35,
                         gram_weight: float = 0.15) -> Dict:
         """
-        Complete Evaluation Pipeline:
-        1. Calculate Similarity Score (TF-IDF + Cosine)
-        2. Calculate Keyword Match Score
-        3. Calculate Grammar & Structural Quality Score
-        4. Compute Partial Marks
-        5. Generate Detailed AI Feedback
+        Complete AI Pipeline.
         """
         if not student_answer or not student_answer.strip():
             return {
                 'similarity_score': 0.0,
                 'grammar_score': 0.0,
                 'keyword_score': 0.0,
+                'confidence_score': 50.0,
                 'obtained_marks': 0.0,
                 'feedback': "No answer submitted.",
                 'matched_keywords': "",
-                'missing_keywords': keywords or ""
+                'missing_keywords': keywords or "",
+                'strengths': [],
+                'weaknesses': ["Blank answer script."],
+                'suggestions': ["Submit a descriptive text answer or upload a valid script file."]
             }
 
-        # 1. Similarity
         sim_score = self.calculate_tfidf_similarity(model_answer, student_answer)
-        
-        # 2. Keywords
         kw_score, matched_kw, missing_kw = self.evaluate_keywords(model_answer, student_answer, keywords)
-        
-        # 3. Grammar & Quality
-        gram_score = self.evaluate_grammar_and_quality(student_answer, model_answer)
-        
-        # 4. Total Weighted Score (0.0 to 100.0)
+        gram_score, gram_suggestions = self.evaluate_grammar_and_quality(student_answer, model_answer)
+
         composite_score = (sim_score * sim_weight) + (kw_score * kw_weight) + (gram_score * gram_weight)
-        
-        # Compute obtained marks bounded between 0 and max_marks
         raw_marks = (composite_score / 100.0) * max_marks
         obtained_marks = min(max(round(raw_marks, 2), 0.0), max_marks)
 
-        # 5. Feedback
-        feedback_text = self.generate_feedback(
-            sim_score, kw_score, gram_score, obtained_marks, max_marks, matched_kw, missing_kw
+        word_count = len(student_answer.strip().split())
+        confidence_score = self.calculate_confidence_score(sim_score, kw_score, gram_score, word_count)
+
+        feedback_text, strengths, weaknesses, suggestions = self.generate_feedback(
+            sim_score, kw_score, gram_score, obtained_marks, max_marks, matched_kw, missing_kw, gram_suggestions
         )
 
         return {
             'similarity_score': round(sim_score, 2),
             'grammar_score': round(gram_score, 2),
             'keyword_score': round(kw_score, 2),
+            'confidence_score': confidence_score,
             'obtained_marks': obtained_marks,
             'feedback': feedback_text,
             'matched_keywords': ", ".join(matched_kw),
-            'missing_keywords': ", ".join(missing_kw)
+            'missing_keywords': ", ".join(missing_kw),
+            'strengths': strengths,
+            'weaknesses': weaknesses,
+            'suggestions': suggestions
         }
 
 
-# Global Singleton Instance for clean imports
+# Global Singleton Instance
 ai_evaluator = AnswerEvaluatorAI()

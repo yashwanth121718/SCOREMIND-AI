@@ -15,7 +15,6 @@ teacher_bp = Blueprint('teacher', __name__, url_prefix='/teacher')
 student_bp = Blueprint('student', __name__, url_prefix='/student')
 common_bp = Blueprint('common', __name__)
 
-# --- Role Access Decorators ---
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -115,7 +114,6 @@ def profile():
             current_user.set_password(new_password)
             flash('Password updated successfully.', 'success')
 
-        # Handle profile picture upload
         if 'profile_pic' in request.files:
             file = request.files['profile_pic']
             if file and allowed_file(file.filename):
@@ -156,6 +154,18 @@ def dashboard():
     total_exams = Exam.query.count()
     total_evaluations = Evaluation.query.count()
 
+    # Calculate Average Marks and Pass Percentage
+    evaluations = Evaluation.query.all()
+    if evaluations:
+        avg_marks = sum(e.obtained_marks for e in evaluations) / len(evaluations)
+        pass_count = sum(1 for e in evaluations if (e.obtained_marks / (e.question.max_marks if e.question else 10.0)) >= 0.50)
+        pass_pct = (pass_count / len(evaluations)) * 100.0
+        avg_sim = sum(e.similarity_score for e in evaluations) / len(evaluations)
+    else:
+        avg_marks = 0.0
+        pass_pct = 0.0
+        avg_sim = 0.0
+
     recent_users = User.query.order_by(User.id.desc()).limit(10).all()
     recent_evaluations = Evaluation.query.order_by(Evaluation.evaluation_id.desc()).limit(10).all()
 
@@ -166,6 +176,9 @@ def dashboard():
                            total_subjects=total_subjects,
                            total_exams=total_exams,
                            total_evaluations=total_evaluations,
+                           avg_marks=round(avg_marks, 2),
+                           pass_pct=round(pass_pct, 1),
+                           avg_sim=round(avg_sim, 1),
                            recent_users=recent_users,
                            recent_evaluations=recent_evaluations)
 
@@ -200,6 +213,27 @@ def dashboard():
     answers = StudentAnswer.query.filter(StudentAnswer.question_id.in_(q_ids)).all() if q_ids else []
     evaluations = Evaluation.query.filter(Evaluation.question_id.in_(q_ids)).all() if q_ids else []
 
+    # Analytics for Teacher: Top Performing Students & Weak Topics
+    student_scores = {}
+    for ev in evaluations:
+        s_name = ev.student.name if ev.student else 'Unknown'
+        student_scores[s_name] = student_scores.get(s_name, 0.0) + ev.obtained_marks
+
+    top_students = sorted(student_scores.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # Weak topics (Questions with low average score)
+    weak_topics = []
+    for q in questions:
+        q_evals = [e for e in evaluations if e.question_id == q.question_id]
+        if q_evals:
+            avg_score = sum(e.obtained_marks for e in q_evals) / len(q_evals)
+            if (avg_score / q.max_marks) < 0.65:
+                weak_topics.append({
+                    'question_text': q.question_text[:60] + '...',
+                    'avg_score': round(avg_score, 1),
+                    'max_marks': q.max_marks
+                })
+
     all_teachers = User.query.filter_by(role='teacher').all()
 
     return render_template('teacher_dashboard.html',
@@ -208,6 +242,8 @@ def dashboard():
                            questions=questions,
                            answers=answers,
                            evaluations=evaluations,
+                           top_students=top_students,
+                           weak_topics=weak_topics,
                            all_teachers=all_teachers)
 
 @teacher_bp.route('/subject/add', methods=['POST'])
@@ -305,15 +341,21 @@ def dashboard():
     my_answers = StudentAnswer.query.filter_by(student_id=current_user.id).all()
     my_evaluations = Evaluation.query.filter_by(student_id=current_user.id).all()
 
-    # Map question to student's answer and evaluation
     ans_map = {ans.question_id: ans for ans in my_answers}
     eval_map = {ev.question_id: ev for ev in my_evaluations}
+
+    # Student progress metrics
+    total_assigned = len(questions)
+    total_submitted = len(my_answers)
+    progress_pct = (total_submitted / total_assigned * 100.0) if total_assigned > 0 else 0.0
 
     return render_template('student_dashboard.html',
                            exams=exams,
                            questions=questions,
                            ans_map=ans_map,
-                           eval_map=eval_map)
+                           eval_map=eval_map,
+                           my_evaluations=my_evaluations,
+                           progress_pct=round(progress_pct, 1))
 
 @student_bp.route('/submit/<int:question_id>', methods=['GET', 'POST'])
 @login_required
@@ -332,7 +374,6 @@ def submit_answer(question_id):
             filepath = os.path.join(Config.UPLOAD_FOLDER, saved_filename)
             file.save(filepath)
 
-            # If plain text file uploaded, read text content
             if saved_filename.endswith('.txt'):
                 with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                     answer_text = f.read()
@@ -341,7 +382,6 @@ def submit_answer(question_id):
             flash('Please enter text answer or upload a valid answer script file.', 'warning')
             return redirect(url_for('student.submit_answer', question_id=question_id))
 
-        # Check existing answer or create new
         existing_ans = StudentAnswer.query.filter_by(student_id=current_user.id, question_id=question_id).first()
         if not existing_ans:
             existing_ans = StudentAnswer(student_id=current_user.id, question_id=question_id)
@@ -353,7 +393,6 @@ def submit_answer(question_id):
 
         db.session.commit()
 
-        # Trigger automatic AI Evaluation instantly for student feedback
         try:
             evaluate_single_answer(existing_ans.answer_id)
             flash('Answer submitted and evaluated by AI successfully!', 'success')
@@ -369,7 +408,6 @@ def submit_answer(question_id):
 def view_result(eval_id):
     eval_rec = Evaluation.query.get_or_404(eval_id)
     
-    # Restrict viewing unless owner, teacher, or admin
     if current_user.role == 'student' and eval_rec.student_id != current_user.id:
         flash('Access denied.', 'danger')
         return redirect(url_for('student.dashboard'))
