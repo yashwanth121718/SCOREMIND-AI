@@ -10,11 +10,11 @@ try:
     from nltk.stem import PorterStemmer, WordNetLemmatizer
     
     # Download essential NLTK data packages silently
-    for resource in ['punkt', 'stopwords', 'wordnet', 'omw-1.4']:
+    for resource in ['punkt', 'punkt_tab', 'stopwords', 'wordnet', 'omw-1.4']:
         try:
-            nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
-        except LookupError:
             nltk.download(resource, quiet=True)
+        except Exception:
+            pass
             
     HAS_NLTK = True
 except Exception:
@@ -70,9 +70,14 @@ class AnswerEvaluatorAI:
             
         clean_text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text.lower())
         
+        tokens = []
         if HAS_NLTK:
-            tokens = word_tokenize(clean_text)
-            stop_words = set(stopwords.words('english'))
+            try:
+                tokens = word_tokenize(clean_text)
+                stop_words = set(stopwords.words('english'))
+            except Exception:
+                tokens = clean_text.split()
+                stop_words = BASIC_STOPWORDS
         else:
             tokens = clean_text.split()
             stop_words = BASIC_STOPWORDS
@@ -80,7 +85,10 @@ class AnswerEvaluatorAI:
         filtered_tokens = [w for w in tokens if w not in stop_words and len(w) > 1]
         
         if self.stemmer:
-            processed = [self.stemmer.stem(w) for w in filtered_tokens]
+            try:
+                processed = [self.stemmer.stem(w) for w in filtered_tokens]
+            except Exception:
+                processed = filtered_tokens
         else:
             processed = filtered_tokens
             
@@ -157,7 +165,6 @@ class AnswerEvaluatorAI:
             stem_kw = self.stemmer.stem(kw) if self.stemmer else kw
             syns = self.get_synonyms(kw)
             
-            # Check exact match, stem match, or synonym match
             is_matched = (
                 kw in student_lower or 
                 stem_kw in student_lower or 
@@ -188,7 +195,6 @@ class AnswerEvaluatorAI:
 
         suggestions = []
 
-        # 1. Length Check
         target_len = max(model_word_count, 15)
         length_ratio = min(word_count / target_len, 1.2)
         length_score = min(length_ratio * 100.0, 100.0)
@@ -196,7 +202,6 @@ class AnswerEvaluatorAI:
         if word_count < target_len * 0.5:
             suggestions.append(f"Answer is concise ({word_count} words vs ~{model_word_count} expected). Elaborate on core definitions.")
 
-        # 2. Capitalization & Sentence Punctuation
         sentences = [s.strip() for s in re.split(r'[.!?]+', student_answer) if s.strip()]
         num_sentences = max(len(sentences), 1)
 
@@ -271,7 +276,6 @@ class AnswerEvaluatorAI:
 
         suggestions.extend(grammar_suggestions)
 
-        # Build composite text string
         feedback_parts = [feedback_head]
         feedback_parts.append(f"• **Semantic Match**: {similarity_score:.1f}%")
         feedback_parts.append(f"• **Keyword Match**: {keyword_score:.1f}%")

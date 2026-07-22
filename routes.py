@@ -9,10 +9,21 @@ from evaluation import evaluate_single_answer, evaluate_exam_answers
 from reports import generate_student_pdf_report, generate_exam_excel_report
 from config import Config
 
+# Advanced Features Imports
+from advanced_features import (
+    extract_text_from_image,
+    check_plagiarism_for_answer,
+    generate_ai_rubric,
+    predict_student_performance,
+    generate_verification_qr_code,
+    process_chatbot_query
+)
+
 auth_bp = Blueprint('auth', __name__)
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 teacher_bp = Blueprint('teacher', __name__, url_prefix='/teacher')
 student_bp = Blueprint('student', __name__, url_prefix='/student')
+api_bp = Blueprint('api', __name__, url_prefix='/api')
 common_bp = Blueprint('common', __name__)
 
 def admin_required(f):
@@ -136,10 +147,28 @@ def redirect_role_dashboard(role):
         return redirect(url_for('student.dashboard'))
 
 
-# ================= COMMON & LANDING ROUTES =================
+# ================= COMMON & PUBLIC ROUTES =================
 @common_bp.route('/')
 def home():
     return render_template('index.html')
+
+@common_bp.route('/leaderboard')
+def leaderboard():
+    evaluations = Evaluation.query.all()
+    student_scores = {}
+    for ev in evaluations:
+        if ev.student:
+            student_scores[ev.student.name] = student_scores.get(ev.student.name, 0.0) + ev.obtained_marks
+
+    sorted_leaderboard = sorted(student_scores.items(), key=lambda x: x[1], reverse=True)
+    return render_template('leaderboard.html', leaderboard=sorted_leaderboard)
+
+@common_bp.route('/verify/<int:eval_id>')
+def verify_result(eval_id):
+    eval_rec = db.session.get(Evaluation, eval_id)
+    if not eval_rec:
+        return render_template('verify.html', is_valid=False, eval_id=eval_id)
+    return render_template('verify.html', is_valid=True, eval=eval_rec)
 
 
 # ================= ADMIN ROUTES =================
@@ -154,7 +183,6 @@ def dashboard():
     total_exams = Exam.query.count()
     total_evaluations = Evaluation.query.count()
 
-    # Calculate Average Marks and Pass Percentage
     evaluations = Evaluation.query.all()
     if evaluations:
         avg_marks = sum(e.obtained_marks for e in evaluations) / len(evaluations)
@@ -190,10 +218,11 @@ def delete_user(user_id):
         flash('You cannot delete your own admin account.', 'danger')
         return redirect(url_for('admin.dashboard'))
 
-    user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    flash(f'User {user.name} removed successfully.', 'success')
+    user = db.session.get(User, user_id)
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'User {user.name} removed successfully.', 'success')
     return redirect(url_for('admin.dashboard'))
 
 
@@ -213,7 +242,6 @@ def dashboard():
     answers = StudentAnswer.query.filter(StudentAnswer.question_id.in_(q_ids)).all() if q_ids else []
     evaluations = Evaluation.query.filter(Evaluation.question_id.in_(q_ids)).all() if q_ids else []
 
-    # Analytics for Teacher: Top Performing Students & Weak Topics
     student_scores = {}
     for ev in evaluations:
         s_name = ev.student.name if ev.student else 'Unknown'
@@ -221,7 +249,6 @@ def dashboard():
 
     top_students = sorted(student_scores.items(), key=lambda x: x[1], reverse=True)[:5]
 
-    # Weak topics (Questions with low average score)
     weak_topics = []
     for q in questions:
         q_evals = [e for e in evaluations if e.question_id == q.question_id]
@@ -290,11 +317,17 @@ def add_question():
     keywords = request.form.get('keywords', '').strip()
     max_marks = float(request.form.get('max_marks') or 10.0)
 
+    # Optional AI Auto Rubric Generation
+    if not model_answer and question_text:
+        rubric_data = generate_ai_rubric(question_text, max_marks)
+        model_answer = rubric_data['model_answer']
+        keywords = rubric_data['keywords']
+
     if exam_id and question_text and model_answer:
         q = Question(exam_id=exam_id, question_text=question_text, model_answer=model_answer, keywords=keywords, max_marks=max_marks)
         db.session.add(q)
         db.session.commit()
-        flash('Question and model answer added successfully.', 'success')
+        flash('Question and AI Rubric added successfully.', 'success')
     return redirect(url_for('teacher.dashboard'))
 
 @teacher_bp.route('/evaluate/<int:answer_id>', methods=['POST', 'GET'])
@@ -303,7 +336,8 @@ def add_question():
 def trigger_evaluation(answer_id):
     try:
         eval_rec = evaluate_single_answer(answer_id)
-        flash(f'Answer evaluated successfully! Score: {eval_rec.obtained_marks}/{eval_rec.question.max_marks}', 'success')
+        plag_info = check_plagiarism_for_answer(answer_id)
+        flash(f'Answer evaluated with AI! Marks: {eval_rec.obtained_marks}/{eval_rec.question.max_marks} (Plagiarism: {plag_info["plagiarism_score"]}%)', 'success')
     except Exception as e:
         flash(f'Evaluation failed: {str(e)}', 'danger')
     return redirect(url_for('teacher.dashboard'))
@@ -344,7 +378,9 @@ def dashboard():
     ans_map = {ans.question_id: ans for ans in my_answers}
     eval_map = {ev.question_id: ev for ev in my_evaluations}
 
-    # Student progress metrics
+    # Performance Prediction for Student
+    prediction = predict_student_performance(current_user.id)
+
     total_assigned = len(questions)
     total_submitted = len(my_answers)
     progress_pct = (total_submitted / total_assigned * 100.0) if total_assigned > 0 else 0.0
@@ -355,13 +391,17 @@ def dashboard():
                            ans_map=ans_map,
                            eval_map=eval_map,
                            my_evaluations=my_evaluations,
+                           prediction=prediction,
                            progress_pct=round(progress_pct, 1))
 
 @student_bp.route('/submit/<int:question_id>', methods=['GET', 'POST'])
 @login_required
 @student_required
 def submit_answer(question_id):
-    question = Question.query.get_or_404(question_id)
+    question = db.session.get(Question, question_id)
+    if not question:
+        flash('Question not found.', 'danger')
+        return redirect(url_for('student.dashboard'))
 
     if request.method == 'POST':
         answer_text = request.form.get('answer_text', '').strip()
@@ -374,9 +414,10 @@ def submit_answer(question_id):
             filepath = os.path.join(Config.UPLOAD_FOLDER, saved_filename)
             file.save(filepath)
 
-            if saved_filename.endswith('.txt'):
-                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                    answer_text = f.read()
+            # OCR Answer Sheet & Handwriting Scanner
+            ocr_text = extract_text_from_image(filepath)
+            if ocr_text:
+                answer_text = ocr_text if not answer_text else f"{answer_text}\n{ocr_text}"
 
         if not answer_text and not saved_filename:
             flash('Please enter text answer or upload a valid answer script file.', 'warning')
@@ -395,7 +436,7 @@ def submit_answer(question_id):
 
         try:
             evaluate_single_answer(existing_ans.answer_id)
-            flash('Answer submitted and evaluated by AI successfully!', 'success')
+            flash('Answer script scanned with OCR and evaluated by AI successfully!', 'success')
         except Exception as e:
             flash('Answer submitted. Evaluation queued.', 'info')
 
@@ -406,18 +447,29 @@ def submit_answer(question_id):
 @student_bp.route('/result/<int:eval_id>')
 @login_required
 def view_result(eval_id):
-    eval_rec = Evaluation.query.get_or_404(eval_id)
-    
+    eval_rec = db.session.get(Evaluation, eval_id)
+    if not eval_rec:
+        flash('Evaluation report not found.', 'danger')
+        return redirect(url_for('student.dashboard'))
+
     if current_user.role == 'student' and eval_rec.student_id != current_user.id:
         flash('Access denied.', 'danger')
         return redirect(url_for('student.dashboard'))
 
-    return render_template('evaluation.html', eval=eval_rec)
+    # Check plagiarism details & QR code
+    plag_info = check_plagiarism_for_answer(eval_rec.answer_id)
+    qr_code_b64 = generate_verification_qr_code(eval_id)
+
+    return render_template('evaluation.html', eval=eval_rec, plag=plag_info, qr_code=qr_code_b64)
 
 @student_bp.route('/download-pdf/<int:eval_id>')
 @login_required
 def download_pdf(eval_id):
-    eval_rec = Evaluation.query.get_or_404(eval_id)
+    eval_rec = db.session.get(Evaluation, eval_id)
+    if not eval_rec:
+        flash('Evaluation report not found.', 'danger')
+        return redirect(url_for('student.dashboard'))
+
     if current_user.role == 'student' and eval_rec.student_id != current_user.id:
         flash('Access denied.', 'danger')
         return redirect(url_for('student.dashboard'))
@@ -428,3 +480,28 @@ def download_pdf(eval_id):
     except Exception as e:
         flash(f'PDF generation failed: {str(e)}', 'danger')
         return redirect(url_for('student.view_result', eval_id=eval_id))
+
+
+# ================= REST API ENDPOINTS & AI CHATBOT =================
+@api_bp.route('/chatbot', methods=['POST'])
+def chatbot_api():
+    data = request.get_json() or {}
+    message = data.get('message', '')
+    role = current_user.role if current_user.is_authenticated else 'student'
+    
+    reply = process_chatbot_query(message, role)
+    return jsonify({'status': 'success', 'reply': reply})
+
+@api_bp.route('/evaluations', methods=['GET'])
+def get_evaluations_api():
+    evals = Evaluation.query.all()
+    return jsonify({'status': 'success', 'count': len(evals), 'evaluations': [e.to_dict() for e in evals]})
+
+@api_bp.route('/generate-rubric', methods=['POST'])
+def generate_rubric_api():
+    data = request.get_json() or {}
+    q_text = data.get('question_text', '')
+    max_m = float(data.get('max_marks', 10.0))
+    
+    rubric = generate_ai_rubric(q_text, max_m)
+    return jsonify({'status': 'success', 'data': rubric})

@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Automated Answer Script Evaluation System{% endblock %}</title>
     
+    <!-- PWA Web Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#0f2027">
+    
     <!-- FontAwesome & Google Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,6 +33,10 @@
         </a>
 
         <div class="nav-controls">
+            <a href="{{ url_for('common.leaderboard') }}" style="color: var(--text-main); text-decoration: none; font-size: 0.9rem; font-weight: 500;">
+                <i class="fas fa-trophy style='color:var(--warning-color)' me-1"></i> Leaderboard
+            </a>
+
             <button class="theme-toggle-btn" id="themeBtn" title="Toggle Light/Dark Theme">
                 <i class="fas fa-sun"></i>
             </button>
@@ -74,6 +82,10 @@
                     </a>
                 {% endif %}
 
+                <a href="{{ url_for('common.leaderboard') }}" class="sidebar-menu-item {% if request.endpoint == 'common.leaderboard' %}active{% endif %}">
+                    <i class="fas fa-trophy"></i> Leaderboard
+                </a>
+
                 <a href="{{ url_for('auth.profile') }}" class="sidebar-menu-item {% if request.endpoint == 'auth.profile' %}active{% endif %}">
                     <i class="fas fa-user-cog"></i> Profile Settings
                 </a>
@@ -101,6 +113,71 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+
+    <!-- Floating AI Chatbot Assistant Widget -->
+    <div id="aiChatbotWidget" style="position: fixed; bottom: 25px; right: 25px; z-index: 9999;">
+        <button id="chatbotToggleBtn" class="btn-primary-custom" style="width: 56px; height: 56px; border-radius: 50%; padding: 0; justify-content: center; box-shadow: 0 8px 25px rgba(0, 229, 255, 0.4);">
+            <i class="fas fa-robot" style="font-size: 1.5rem;"></i>
+        </button>
+
+        <div id="chatbotBox" class="glass-panel" style="display: none; position: absolute; bottom: 70px; right: 0; width: 340px; height: 440px; flex-direction: column; overflow: hidden; box-shadow: 0 12px 35px rgba(0,0,0,0.5);">
+            <div style="background: rgba(15, 23, 42, 0.95); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: var(--glass-border);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-robot" style="color: var(--primary-color);"></i>
+                    <strong style="font-size: 0.95rem;">EvalAI Assistant</strong>
+                </div>
+                <button onclick="toggleChatbot()" style="background: none; border: none; color: var(--text-muted); cursor: pointer;"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div id="chatbotMessages" style="flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; line-height: 1.4;">
+                <div style="background: rgba(0,229,255,0.15); border: 1px solid rgba(0,229,255,0.3); padding: 10px 12px; border-radius: 10px; color: var(--text-main);">
+                    Hello! I am your AI Evaluation Assistant. Ask me about marks, OCR scanning, or PDF grade reports!
+                </div>
+            </div>
+
+            <div style="padding: 10px; background: rgba(0,0,0,0.3); border-top: var(--glass-border); display: flex; gap: 6px;">
+                <input type="text" id="chatbotInput" class="form-control-custom" placeholder="Ask AI assistant..." style="font-size: 0.85rem; padding: 8px 12px;" onkeypress="if(event.key==='Enter') sendChatbotMsg()">
+                <button onclick="sendChatbotMsg()" class="btn-primary-custom" style="padding: 8px 12px;"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function toggleChatbot() {
+        const box = document.getElementById('chatbotBox');
+        box.style.display = box.style.display === 'flex' ? 'none' : 'flex';
+    }
+    document.getElementById('chatbotToggleBtn').addEventListener('click', toggleChatbot);
+
+    function sendChatbotMsg() {
+        const input = document.getElementById('chatbotInput');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        const msgsBox = document.getElementById('chatbotMessages');
+        msgsBox.innerHTML += `<div style="align-self: flex-end; background: rgba(124,77,255,0.3); padding: 8px 12px; border-radius: 10px; color: #fff;">${msg}</div>`;
+        input.value = '';
+        msgsBox.scrollTop = msgsBox.scrollHeight;
+
+        fetch('/api/chatbot', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: msg})
+        })
+        .then(res => res.json())
+        .then(data => {
+            msgsBox.innerHTML += `<div style="background: rgba(0,229,255,0.15); border: 1px solid rgba(0,229,255,0.3); padding: 10px 12px; border-radius: 10px; color: var(--text-main);">${data.reply}</div>`;
+            msgsBox.scrollTop = msgsBox.scrollHeight;
+        });
+    }
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/static/sw.js').catch(err => {});
+        });
+    }
+    </script>
 
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>

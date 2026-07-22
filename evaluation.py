@@ -7,11 +7,11 @@ def evaluate_single_answer(answer_id: int) -> Evaluation:
     """
     Evaluates a single student answer by ID and saves/updates the Evaluation record in DB.
     """
-    answer = StudentAnswer.query.get(answer_id)
+    answer = db.session.get(StudentAnswer, answer_id)
     if not answer:
         raise ValueError(f"StudentAnswer with ID {answer_id} not found.")
 
-    question = Question.query.get(answer.question_id)
+    question = db.session.get(Question, answer.question_id)
     if not question:
         raise ValueError(f"Question with ID {answer.question_id} not found.")
 

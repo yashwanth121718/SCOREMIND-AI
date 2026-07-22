@@ -4,7 +4,7 @@ from flask_login import LoginManager
 from config import Config
 from models import db, User
 from database import init_db
-from routes import auth_bp, admin_bp, teacher_bp, student_bp, common_bp
+from routes import auth_bp, admin_bp, teacher_bp, student_bp, common_bp, api_bp
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -25,7 +25,7 @@ def create_app(config_class=Config):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     # Register Blueprints
     app.register_blueprint(common_bp)
@@ -33,6 +33,7 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(teacher_bp)
     app.register_blueprint(student_bp)
+    app.register_blueprint(api_bp)
 
     return app
 

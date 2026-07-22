@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Result - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 650px; margin: 40px auto;">
+    <div class="glass-panel" style="padding: 35px; text-align: center;">
+        {% if is_valid %}
+            <i class="fas fa-check-circle" style="font-size: 3.5rem; color: var(--success-color); margin-bottom: 15px;"></i>
+            <h2 style="color: var(--success-color);">Authentic Evaluation Certificate</h2>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 5px;">Evaluation record #{{ eval.evaluation_id }} verified on EvalAI Blockchain Registry</p>
+
+            <div style="background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; margin: 25px 0; text-align: left;">
+                <p style="margin-bottom: 8px;"><strong>Student Name:</strong> {{ eval.student.name if eval.student else 'N/A' }}</p>
+                <p style="margin-bottom: 8px;"><strong>Subject:</strong> {{ eval.question.exam.subject.subject_name if eval.question and eval.question.exam and eval.question.exam.subject else 'N/A' }}</p>
+                <p style="margin-bottom: 8px;"><strong>Exam:</strong> {{ eval.question.exam.exam_name if eval.question and eval.question.exam else 'N/A' }}</p>
+                <p style="margin-bottom: 8px;"><strong>Marks Awarded:</strong> <span style="color:var(--primary-color); font-weight:700;">{{ eval.obtained_marks }} / {{ eval.question.max_marks }}</span></p>
+                <p style="margin-bottom: 8px;"><strong>Semantic Alignment:</strong> {{ eval.similarity_score }}%</p>
+                <p><strong>Verified Date:</strong> {{ eval.evaluated_date.strftime('%Y-%m-%d %H:%M') if eval.evaluated_date else '' }}</p>
+            </div>
+        {% else %}
+            <i class="fas fa-times-circle" style="font-size: 3.5rem; color: var(--danger-color); margin-bottom: 15px;"></i>
+            <h2 style="color: var(--danger-color);">Evaluation Record Not Found</h2>
+            <p style="color: var(--text-muted); margin-top: 10px;">Evaluation ID #{{ eval_id }} could not be verified in official records.</p>
+        {% endif %}
+
+        <a href="{{ url_for('common.home') }}" class="btn-primary-custom" style="margin-top: 15px; padding: 10px 24px;">
+            <i class="fas fa-home me-1"></i> Return to Homepage
+        </a>
+    </div>
+</div>
+{% endblock %}

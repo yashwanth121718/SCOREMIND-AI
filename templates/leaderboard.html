@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Student Leaderboard - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 20px auto;">
+    <div class="glass-panel" style="padding: 30px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <i class="fas fa-trophy" style="font-size: 3rem; color: var(--warning-color); margin-bottom: 12px;"></i>
+            <h2>Student Academic Leaderboard</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Rankings based on cumulative AI evaluation scores</p>
+        </div>
+
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Student Name</th>
+                    <th>Total Score</th>
+                    <th>Achievement Tier</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for name, score in leaderboard %}
+                    <tr>
+                        <td>
+                            {% if loop.index == 1 %}
+                                <span style="font-size: 1.4rem;">🥇 #1</span>
+                            {% elif loop.index == 2 %}
+                                <span style="font-size: 1.3rem;">🥈 #2</span>
+                            {% elif loop.index == 3 %}
+                                <span style="font-size: 1.2rem;">🥉 #3</span>
+                            {% else %}
+                                <strong>#{{ loop.index }}</strong>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-user-circle style='color:var(--primary-color)'"></i>
+                                <strong>{{ name }}</strong>
+                            </div>
+                        </td>
+                        <td><strong style="color: var(--primary-color); font-size: 1.1rem;">{{ score|round(1) }} pts</strong></td>
+                        <td>
+                            {% if loop.index == 1 %}
+                                <span class="badge-custom badge-success">Gold Scholar</span>
+                            {% elif loop.index <= 3 %}
+                                <span class="badge-custom badge-warning">High Honors</span>
+                            {% else %}
+                                <span class="badge-custom badge-success">Merit Pass</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                            No evaluations recorded yet for leaderboard calculations.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -2,7 +2,7 @@ import os
 import csv
 from datetime import datetime
 from config import Config
-from models import User, Exam, Subject, Question, StudentAnswer, Evaluation
+from models import db, User, Exam, Subject, Question, StudentAnswer, Evaluation
 
 try:
     from reportlab.lib.pagesizes import letter
@@ -25,7 +25,7 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
     Generates a PDF report for a single evaluation.
     Includes College Header, Student/Subject/Exam Info, AI Score, Marks, Teacher Signature line, Date.
     """
-    eval_rec = Evaluation.query.get(evaluation_id)
+    eval_rec = db.session.get(Evaluation, evaluation_id)
     if not eval_rec:
         raise ValueError(f"Evaluation with ID {evaluation_id} not found.")
 
@@ -42,7 +42,6 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
         doc = SimpleDocTemplate(filepath, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()
         
-        # Styles
         hdr_style = ParagraphStyle('CollegeLogoHdr', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#0f2027'), alignment=1, spaceAfter=2)
         sub_hdr_style = ParagraphStyle('CollegeSubHdr', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4a5568'), alignment=1, spaceAfter=12)
         title_style = ParagraphStyle('DocTitle', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#00b0ff'), spaceAfter=10, alignment=1)
@@ -51,14 +50,12 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
 
         story = []
 
-        # 1. College Logo & Header Placeholder
         story.append(Paragraph("<b>UNIVERSITY COLLEGE OF ENGINEERING & TECHNOLOGY</b>", hdr_style))
         story.append(Paragraph("Department of Computer Science & Engineering | Automated AI Script Evaluation", sub_hdr_style))
         story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#00e5ff'), spaceAfter=12))
 
         story.append(Paragraph("STUDENT EVALUATION & DIAGNOSTIC GRADE SHEET", title_style))
 
-        # 2. Student, Subject & Exam Metadata Table
         meta_data = [
             [Paragraph("<b>Student Name:</b>", body_style), Paragraph(student.name if student else 'N/A', body_style),
              Paragraph("<b>Date of Eval:</b>", body_style), Paragraph(eval_rec.evaluated_date.strftime('%Y-%m-%d %H:%M'), body_style)],
@@ -77,7 +74,6 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
         story.append(t_meta)
         story.append(Spacer(1, 12))
 
-        # 3. Marks & AI Score Summary
         conf_score = getattr(eval_rec, 'confidence_score', 92.5)
         scores_data = [
             ["Obtained Marks", "Max Marks", "Similarity Match", "Keyword Match", "Grammar Score", "AI Confidence"],
@@ -97,7 +93,6 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
         story.append(t_scores)
         story.append(Spacer(1, 12))
 
-        # 4. Question & Answers
         story.append(Paragraph("Question Prompt", h2_style))
         story.append(Paragraph(question.question_text if question else 'N/A', body_style))
         story.append(Spacer(1, 8))
@@ -111,13 +106,11 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
         story.append(Paragraph(student_ans, body_style))
         story.append(Spacer(1, 12))
 
-        # 5. AI Diagnostic Feedback
         story.append(Paragraph("AI Diagnostic Feedback & Analysis", h2_style))
         feedback_lines = eval_rec.feedback.replace('\n', '<br/>') if eval_rec.feedback else 'No feedback.'
         story.append(Paragraph(feedback_lines, body_style))
         story.append(Spacer(1, 20))
 
-        # 6. Teacher Signature Line & Verification Seal
         sig_data = [
             [Paragraph("<b>Evaluator Signature:</b> _______________________", body_style),
              Paragraph("<b>Verified Date:</b> _______________________", body_style)]
@@ -129,7 +122,6 @@ def generate_student_pdf_report(evaluation_id: int) -> str:
         ]))
         story.append(t_sig)
 
-        # Footer
         story.append(HRFlowable(width="100%", thickness=0.5, color=colors.gray, spaceBefore=15, spaceAfter=8))
         story.append(Paragraph("Automated Answer Script Evaluation System - Official Grade Record", ParagraphStyle('Footer', parent=body_style, fontSize=7.5, textColor=colors.gray, alignment=1)))
 
@@ -154,7 +146,7 @@ def generate_exam_excel_report(exam_id: int) -> str:
     """
     Generates an Excel report for an entire exam with student-wise marks, subject results, stats, pass percentage.
     """
-    exam = Exam.query.get(exam_id)
+    exam = db.session.get(Exam, exam_id)
     if not exam:
         raise ValueError(f"Exam with ID {exam_id} not found.")
 
@@ -210,7 +202,6 @@ def generate_exam_excel_report(exam_id: int) -> str:
         with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='Student Evaluation Results', index=False)
             
-            # Summary Statistics Sheet
             total_students = len(evaluations)
             avg_score = (total_obtained / total_students) if total_students > 0 else 0.0
             pass_pct = (pass_count / total_students * 100.0) if total_students > 0 else 0.0
