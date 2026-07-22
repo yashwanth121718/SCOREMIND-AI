@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 30px auto;">
+    <div class="form-card">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <img src="{{ url_for('static', filename='uploads/' + user.profile_pic) }}" 
+                 onerror="this.src='https://ui-avatars.com/api/?name={{ user.name }}&background=00e5ff&color=0f172a'" 
+                 style="width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-color); margin-bottom: 12px;" alt="Avatar">
+            <h2>{{ user.name }}</h2>
+            <span class="role-pill role-{{ user.role }}">{{ user.role }}</span>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 8px;">Member since {{ user.created_at.strftime('%B %Y') if user.created_at else '' }}</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.profile') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" class="form-control-custom" value="{{ user.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" class="form-control-custom" value="{{ user.email }}" disabled style="opacity: 0.6;">
+            </div>
+
+            <div class="form-group">
+                <label>Update Password (Leave blank to keep unchanged)</label>
+                <input type="password" name="new_password" class="form-control-custom" placeholder="New Password">
+            </div>
+
+            <div class="form-group">
+                <label>Upload Profile Picture</label>
+                <input type="file" name="profile_pic" class="form-control-custom" onchange="validateFileInput(this)">
+            </div>
+
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 12px; margin-top: 10px;">
+                <i class="fas fa-save me-1"></i> Update Profile Details
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

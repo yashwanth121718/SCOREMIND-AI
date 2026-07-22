@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Answer Script - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 750px; margin: 20px auto;">
+    <div class="glass-panel" style="padding: 35px;">
+        <div style="margin-bottom: 25px;">
+            <a href="{{ url_for('student.dashboard') }}" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">
+                <i class="fas fa-arrow-left me-1"></i> Back to Student Portal
+            </a>
+            <h2 style="margin-top: 10px;">Submit Descriptive Answer Script</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Submit your answer in plain text or upload a document/script file.</p>
+        </div>
+
+        <!-- Question Prompt Box -->
+        <div style="background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border-left: 4px solid var(--primary-color); margin-bottom: 25px;">
+            <h4 style="color: var(--primary-color); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px;">Question</h4>
+            <p style="font-size: 1.05rem; font-weight: 500; line-height: 1.5;">{{ question.question_text }}</p>
+            <span style="display: block; margin-top: 8px; font-size: 0.85rem; color: var(--warning-color);">
+                Max Marks: {{ question.max_marks }}
+            </span>
+        </div>
+
+        <form method="POST" action="{{ url_for('student.submit_answer', question_id=question.question_id) }}" enctype="multipart/form-data">
+            <!-- Option 1: Direct Text Area -->
+            <div class="form-group">
+                <label><i class="fas fa-edit me-1"></i> Option A: Type / Paste Descriptive Answer</label>
+                <textarea name="answer_text" class="form-control-custom" style="min-height: 180px;" placeholder="Write your complete descriptive answer here..."></textarea>
+            </div>
+
+            <div style="text-align: center; margin: 20px 0; color: var(--text-muted); font-size: 0.9rem;">— OR —</div>
+
+            <!-- Option 2: Upload File -->
+            <div class="form-group">
+                <label><i class="fas fa-file-upload me-1"></i> Option B: Upload Answer Script File (.txt, .pdf, .docx, .png, .jpg)</label>
+                <input type="file" name="uploaded_file" class="form-control-custom" onchange="validateFileInput(this)">
+            </div>
+
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 14px; margin-top: 15px; font-size: 1rem;">
+                <i class="fas fa-paper-plane me-2"></i> Submit & Run Instant AI Evaluation
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

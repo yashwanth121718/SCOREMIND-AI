@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Automated Answer Script Evaluation System{% endblock %}</title>
+    
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Header Navbar -->
+    <header class="app-navbar">
+        <a href="{{ url_for('common.home') }}" class="brand-logo">
+            <i class="fas fa-brain-circuit"></i>
+            <span>Eval<span style="color:var(--primary-color)">AI</span></span>
+        </a>
+
+        <div class="nav-controls">
+            <button class="theme-toggle-btn" id="themeBtn" title="Toggle Light/Dark Theme">
+                <i class="fas fa-sun"></i>
+            </button>
+
+            {% if current_user.is_authenticated %}
+                <div class="user-badge">
+                    <img src="{{ url_for('static', filename='uploads/' + current_user.profile_pic) }}" 
+                         onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.name }}&background=00e5ff&color=0f172a'" 
+                         class="user-avatar" alt="Avatar">
+                    <span style="font-size:0.9rem; font-weight:600;">{{ current_user.name }}</span>
+                    <span class="role-pill role-{{ current_user.role }}">{{ current_user.role }}</span>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="btn-secondary-custom" style="padding: 6px 14px; font-size: 0.85rem;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn-secondary-custom" style="padding: 6px 16px;">Login</a>
+                <a href="{{ url_for('auth.register') }}" class="btn-primary-custom" style="padding: 6px 18px;">Register</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        {% if current_user.is_authenticated %}
+            <!-- Navigation Sidebar -->
+            <aside class="app-sidebar">
+                {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('admin.dashboard') }}" class="sidebar-menu-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                        <i class="fas fa-chart-line"></i> Admin Dashboard
+                    </a>
+                {% endif %}
+
+                {% if current_user.role in ['teacher', 'admin'] %}
+                    <a href="{{ url_for('teacher.dashboard') }}" class="sidebar-menu-item {% if request.endpoint == 'teacher.dashboard' %}active{% endif %}">
+                        <i class="fas fa-chalkboard-teacher"></i> Teacher Module
+                    </a>
+                {% endif %}
+
+                {% if current_user.role in ['student', 'admin'] %}
+                    <a href="{{ url_for('student.dashboard') }}" class="sidebar-menu-item {% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+                        <i class="fas fa-user-graduate"></i> Student Portal
+                    </a>
+                {% endif %}
+
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-menu-item {% if request.endpoint == 'auth.profile' %}active{% endif %}">
+                    <i class="fas fa-user-cog"></i> Profile Settings
+                </a>
+            </aside>
+        {% endif %}
+
+        <!-- Main Body Content -->
+        <main class="main-content">
+            <!-- Flash Message Alerts -->
+            <div class="alert-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert-custom alert-{{ category }}">
+                                <span><i class="fas fa-info-circle me-2"></i> {{ message }}</span>
+                                <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

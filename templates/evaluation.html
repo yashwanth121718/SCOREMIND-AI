@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}AI Evaluation Report - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
+
+    <!-- Top Action Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h2><i class="fas fa-microchip me-2" style="color:var(--primary-color);"></i> AI Evaluation Diagnostics</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Evaluation #{{ eval.evaluation_id }} for {{ eval.student.name if eval.student else 'Student' }}</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <a href="{{ url_for('student.download_pdf', eval_id=eval.evaluation_id) }}" class="btn-primary-custom">
+                <i class="fas fa-file-pdf me-1"></i> Download PDF Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Final Score Overview Header Card -->
+    <div class="glass-panel" style="padding: 30px; margin-bottom: 30px; background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(124, 77, 255, 0.1));">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div>
+                <span class="role-pill role-student" style="margin-bottom: 8px; display: inline-block;">Final Grade Summary</span>
+                <h1 style="font-size: 2.8rem; font-weight: 800; color: var(--primary-color);">
+                    {{ eval.obtained_marks }} <span style="font-size: 1.4rem; color: var(--text-muted);">/ {{ eval.question.max_marks if eval.question else 10.0 }}</span>
+                </h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Evaluated on {{ eval.evaluated_date.strftime('%Y-%m-%d %H:%M') if eval.evaluated_date else '' }}</p>
+            </div>
+
+            <!-- Score Metric Progress Indicators -->
+            <div style="display: flex; gap: 25px; flex-wrap: wrap;">
+                <div style="text-align: center; min-width: 110px;">
+                    <h3 style="color: var(--primary-color); font-size: 1.8rem; font-weight: 700;">{{ eval.similarity_score }}%</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Semantic Match</p>
+                    <div class="progress-bar-container"><div class="progress-bar-fill fill-primary" style="width: {{ eval.similarity_score }}%;"></div></div>
+                </div>
+
+                <div style="text-align: center; min-width: 110px;">
+                    <h3 style="color: var(--secondary-color); font-size: 1.8rem; font-weight: 700;">{{ eval.keyword_score }}%</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Keywords Score</p>
+                    <div class="progress-bar-container"><div class="progress-bar-fill fill-warning" style="width: {{ eval.keyword_score }}%;"></div></div>
+                </div>
+
+                <div style="text-align: center; min-width: 110px;">
+                    <h3 style="color: var(--accent-color); font-size: 1.8rem; font-weight: 700;">{{ eval.grammar_score }}%</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Grammar Quality</p>
+                    <div class="progress-bar-container"><div class="progress-bar-fill fill-success" style="width: {{ eval.grammar_score }}%;"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Diagnostic Feedback Card -->
+    <div class="glass-panel" style="padding: 26px; margin-bottom: 30px;">
+        <h3 style="margin-bottom: 12px; color: var(--accent-color); font-size: 1.15rem;">
+            <i class="fas fa-robot me-2"></i> AI Diagnostic Feedback & Analysis
+        </h3>
+        <div style="background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; font-size: 0.95rem; line-height: 1.6; white-space: pre-line;">
+            {{ eval.feedback }}
+        </div>
+    </div>
+
+    <!-- Keywords Breakdown Grid -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+        <div class="glass-panel" style="padding: 22px;">
+            <h4 style="color: var(--success-color); margin-bottom: 12px;"><i class="fas fa-check-circle me-2"></i> Matched Keywords</h4>
+            <div>
+                {% if eval.matched_keywords %}
+                    {% for kw in eval.matched_keywords.split(',') %}
+                        <span class="badge-custom badge-success" style="display: inline-block; margin: 3px; font-size: 0.85rem;">{{ kw.strip() }}</span>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">No target keywords matched.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="glass-panel" style="padding: 22px;">
+            <h4 style="color: var(--danger-color); margin-bottom: 12px;"><i class="fas fa-times-circle me-2"></i> Missing Keywords</h4>
+            <div>
+                {% if eval.missing_keywords %}
+                    {% for kw in eval.missing_keywords.split(',') %}
+                        <span class="badge-custom badge-danger" style="display: inline-block; margin: 3px; font-size: 0.85rem;">{{ kw.strip() }}</span>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">No missing keywords!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Side-by-Side Comparison -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+        <div class="glass-panel" style="padding: 24px;">
+            <h3 style="margin-bottom: 12px; font-size: 1rem; color: var(--primary-color);">Model Answer (Reference)</h3>
+            <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                {{ eval.question.model_answer if eval.question else 'N/A' }}
+            </p>
+        </div>
+
+        <div class="glass-panel" style="padding: 24px;">
+            <h3 style="margin-bottom: 12px; font-size: 1rem; color: var(--secondary-color);">Student's Submitted Answer</h3>
+            <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-main); background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                {{ eval.student_answer.answer_text if eval.student_answer else 'N/A' }}
+            </p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

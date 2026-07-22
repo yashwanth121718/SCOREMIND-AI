@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 40px auto;">
+    <div class="form-card">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <i class="fas fa-user-lock" style="font-size: 2.8rem; color: var(--primary-color); margin-bottom: 12px;"></i>
+            <h2>Account Login</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">Access your evaluation dashboard</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.login') }}" onsubmit="return validateForm(this)">
+            <div class="form-group">
+                <label><i class="fas fa-envelope me-1"></i> Email Address</label>
+                <input type="email" id="email" name="email" class="form-control-custom" placeholder="name@university.edu" required>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-lock me-1"></i> Password</label>
+                <input type="password" id="password" name="password" class="form-control-custom" placeholder="••••••••" required>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <label style="font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+                    <input type="checkbox" name="remember"> Remember Me
+                </label>
+            </div>
+
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 12px;">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+        </form>
+
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center;">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Quick Demo Fill:</p>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="fillDemo('admin@eval.ai', 'admin123')" class="btn-secondary-custom" style="padding: 4px 10px; font-size: 0.75rem;">
+                    Admin
+                </button>
+                <button onclick="fillDemo('turing@university.edu', 'teacher123')" class="btn-secondary-custom" style="padding: 4px 10px; font-size: 0.75rem;">
+                    Teacher
+                </button>
+                <button onclick="fillDemo('john@student.edu', 'student123')" class="btn-secondary-custom" style="padding: 4px 10px; font-size: 0.75rem;">
+                    Student
+                </button>
+            </div>
+        </div>
+
+        <p style="text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-muted);">
+            Don't have an account? <a href="{{ url_for('auth.register') }}" style="color: var(--primary-color);">Register here</a>
+        </p>
+    </div>
+</div>
+
+<script>
+function fillDemo(email, password) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = password;
+}
+</script>
+{% endblock %}

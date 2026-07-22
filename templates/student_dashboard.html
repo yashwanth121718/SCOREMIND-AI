@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Student Exam Portal - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
+
+    <div style="margin-bottom: 25px;">
+        <h2><i class="fas fa-user-graduate me-2" style="color:var(--primary-color);"></i> Student Exam Portal</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">View assigned descriptive exams, submit your answer scripts, and inspect instant AI evaluation feedback.</p>
+    </div>
+
+    <!-- Questions & Submissions List -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        {% for q in questions %}
+            {% set ans = ans_map.get(q.question_id) %}
+            {% set ev = eval_map.get(q.question_id) %}
+
+            <div class="glass-panel" style="padding: 26px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <span class="role-pill role-teacher" style="margin-bottom: 8px; display: inline-block;">
+                            {{ q.exam.subject.subject_code if q.exam and q.exam.subject else 'Exam' }} - {{ q.exam.exam_name if q.exam else '' }}
+                        </span>
+                        <h3 style="font-size: 1.15rem; color: var(--text-main);">{{ q.question_text }}</h3>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.9rem; color: var(--warning-color); font-weight: 600;">Max Marks: {{ q.max_marks }}</span>
+                    </div>
+                </div>
+
+                <!-- Answer Status & Marks Card -->
+                {% if ans %}
+                    <div style="background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                                <i class="fas fa-check-circle style='color:var(--accent-color)' me-1"></i> Submitted on {{ ans.submitted_at.strftime('%Y-%m-%d %H:%M') if ans.submitted_at else '' }}
+                            </span>
+                            
+                            {% if ev %}
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">
+                                        Score: {{ ev.obtained_marks }} / {{ q.max_marks }}
+                                    </span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {% if ans.answer_text %}
+                            <p style="font-size: 0.9rem; color: var(--text-main); line-height: 1.5; font-style: italic;">
+                                "{{ ans.answer_text[:180] }}{% if ans.answer_text|length > 180 %}...{% endif %}"
+                            </p>
+                        {% endif %}
+
+                        {% if ev %}
+                            <div style="margin-top: 15px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div style="display: flex; gap: 15px; font-size: 0.85rem;">
+                                    <span><strong>Semantic Match:</strong> {{ ev.similarity_score }}%</span>
+                                    <span><strong>Keyword Score:</strong> {{ ev.keyword_score }}%</span>
+                                    <span><strong>Grammar:</strong> {{ ev.grammar_score }}%</span>
+                                </div>
+                                <div style="display: flex; gap: 10px;">
+                                    <a href="{{ url_for('student.view_result', eval_id=ev.evaluation_id) }}" class="btn-primary-custom" style="padding: 4px 12px; font-size: 0.8rem;">
+                                        <i class="fas fa-chart-pie me-1"></i> AI Breakdown
+                                    </a>
+                                    <a href="{{ url_for('student.download_pdf', eval_id=ev.evaluation_id) }}" class="btn-secondary-custom" style="padding: 4px 12px; font-size: 0.8rem; color: var(--primary-color); border-color: var(--primary-color);">
+                                        <i class="fas fa-file-pdf me-1"></i> PDF Grade Sheet
+                                    </a>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <span class="badge-custom badge-warning">Pending Submission</span>
+                        <a href="{{ url_for('student.submit_answer', question_id=q.question_id) }}" class="btn-primary-custom">
+                            <i class="fas fa-paper-plane me-1"></i> Write / Upload Answer Script
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="glass-panel" style="padding: 40px; text-align: center;">
+                <p style="color: var(--text-muted);">No exam questions currently assigned.</p>
+            </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

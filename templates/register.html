@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Register - EvalAI{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 40px auto;">
+    <div class="form-card">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <i class="fas fa-user-plus" style="font-size: 2.8rem; color: var(--primary-color); margin-bottom: 12px;"></i>
+            <h2>Create New Account</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">Register as a Teacher or Student</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.register') }}" onsubmit="return validateForm(this)">
+            <div class="form-group">
+                <label><i class="fas fa-user me-1"></i> Full Name</label>
+                <input type="text" name="name" class="form-control-custom" placeholder="e.g. Dr. Alan Turing" required>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-envelope me-1"></i> Email Address</label>
+                <input type="email" name="email" class="form-control-custom" placeholder="name@university.edu" required>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-user-tag me-1"></i> Account Role</label>
+                <select name="role" class="form-control-custom" required>
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher / Evaluator</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-lock me-1"></i> Password</label>
+                <input type="password" name="password" class="form-control-custom" placeholder="Create strong password" required>
+            </div>
+
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 12px; margin-top: 10px;">
+                <i class="fas fa-check-circle"></i> Create Account
+            </button>
+        </form>
+
+        <p style="text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-muted);">
+            Already registered? <a href="{{ url_for('auth.login') }}" style="color: var(--primary-color);">Sign in here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
