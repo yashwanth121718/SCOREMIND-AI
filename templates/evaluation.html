@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}AI Evaluation Report - EvalAI{% endblock %}
+{% block title %}AI Evaluation Report - ScoreMind AI{% endblock %}
 
 {% block content %}
 <div style="max-width: 1100px; margin: 0 auto;">
@@ -9,11 +9,13 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
         <div>
             <h2><i class="fas fa-microchip me-2" style="color:var(--primary-color);"></i> AI Evaluation Diagnostics</h2>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Evaluation #{{ eval.evaluation_id }} for {{ eval.student.name if eval.student else 'Student' }}</p>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Evaluation #{{ eval.evaluation_id }} for {{ eval.student.name if eval.student else 'Student' }}
+            </p>
         </div>
         <div style="display: flex; gap: 12px;">
             <a href="{{ url_for('student.download_pdf', eval_id=eval.evaluation_id) }}" class="btn-primary-custom">
-                <i class="fas fa-file-pdf me-1"></i> Download PDF Report
+                <i class="fas fa-file-pdf me-1"></i> Download PDF Grade Sheet
             </a>
         </div>
     </div>
@@ -22,34 +24,46 @@
     <div class="glass-panel" style="padding: 30px; margin-bottom: 30px; background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(124, 77, 255, 0.1));">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
             <div>
-                <span class="role-pill role-student" style="margin-bottom: 8px; display: inline-block;">Final Grade Summary</span>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                    <span class="role-pill role-student">Final Grade Summary</span>
+                    {% if eval.is_verified %}
+                        <span class="badge-custom badge-success"><i class="fas fa-check-circle me-1"></i> Teacher Verified</span>
+                    {% endif %}
+                </div>
                 <h1 style="font-size: 2.8rem; font-weight: 800; color: var(--primary-color);">
-                    {{ eval.obtained_marks }} <span style="font-size: 1.4rem; color: var(--text-muted);">/ {{ eval.question.max_marks if eval.question else 10.0 }}</span>
+                    {{ eval.final_marks() }} <span style="font-size: 1.4rem; color: var(--text-muted);">/ {{ eval.question.max_marks if eval.question else 10.0 }}</span>
                 </h1>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Evaluated on {{ eval.evaluated_date.strftime('%Y-%m-%d %H:%M') if eval.evaluated_date else '' }}</p>
+                {% if eval.teacher_marks is not none %}
+                    <p style="color: var(--accent-color); font-size: 0.85rem; font-weight: 600;">
+                        <i class="fas fa-pencil-alt me-1"></i> AI Marks ({{ eval.obtained_marks }}) adjusted by Teacher
+                    </p>
+                {% endif %}
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">
+                    Evaluated on {{ eval.evaluated_date.strftime('%Y-%m-%d %H:%M') if eval.evaluated_date else '' }}
+                </p>
             </div>
 
             <!-- Score Metric Progress Indicators -->
             <div style="display: flex; gap: 25px; flex-wrap: wrap;">
-                <div style="text-align: center; min-width: 100px;">
+                <div style="text-align: center; min-width: 90px;">
                     <h3 style="color: var(--primary-color); font-size: 1.8rem; font-weight: 700;">{{ eval.similarity_score }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Semantic Match</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-primary" style="width: {{ eval.similarity_score }}%;"></div></div>
                 </div>
 
-                <div style="text-align: center; min-width: 100px;">
+                <div style="text-align: center; min-width: 90px;">
                     <h3 style="color: var(--secondary-color); font-size: 1.8rem; font-weight: 700;">{{ eval.keyword_score }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Keywords Score</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-warning" style="width: {{ eval.keyword_score }}%;"></div></div>
                 </div>
 
-                <div style="text-align: center; min-width: 100px;">
+                <div style="text-align: center; min-width: 90px;">
                     <h3 style="color: var(--accent-color); font-size: 1.8rem; font-weight: 700;">{{ eval.grammar_score }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Grammar Quality</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-success" style="width: {{ eval.grammar_score }}%;"></div></div>
                 </div>
 
-                <div style="text-align: center; min-width: 100px;">
+                <div style="text-align: center; min-width: 90px;">
                     <h3 style="color: #ffd54f; font-size: 1.8rem; font-weight: 700;">{{ eval.confidence_score|round(1) }}%</h3>
                     <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">AI Confidence</p>
                     <div class="progress-bar-container"><div class="progress-bar-fill fill-warning" style="width: {{ eval.confidence_score }}%;"></div></div>
@@ -58,10 +72,39 @@
         </div>
     </div>
 
+    <!-- Question Rubric Metadata Box -->
+    {% if eval.question %}
+    <div class="glass-panel" style="padding: 20px 26px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <span class="role-pill role-teacher" style="margin-bottom: 5px; display: inline-block;">
+                    {{ eval.question.question_no or 'Question' }} - {{ eval.question.question_type or 'Descriptive' }}
+                </span>
+                <h4 style="font-size: 1.05rem; color: var(--text-main);">{{ eval.question.question_text }}</h4>
+            </div>
+            <div style="display: flex; gap: 15px; font-size: 0.85rem;">
+                <div><strong>Bloom's Taxonomy:</strong> <span style="color: var(--primary-color);">{{ eval.question.blooms_level or 'Understand' }}</span></div>
+                <div><strong>Difficulty:</strong> <span style="color: var(--warning-color);">{{ eval.question.difficulty or 'Medium' }}</span></div>
+                <div><strong>Expected Words:</strong> <span style="color: var(--accent-color);">{{ eval.question.expected_length or '40-70' }}</span></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Teacher Feedback Notes (If present) -->
+    {% if eval.teacher_feedback %}
+    <div class="glass-panel" style="padding: 24px; margin-bottom: 30px; border-left: 4px solid var(--accent-color);">
+        <h3 style="margin-bottom: 10px; color: var(--accent-color); font-size: 1.05rem;">
+            <i class="fas fa-chalkboard-teacher me-2"></i> Teacher Feedback & Remarks
+        </h3>
+        <p style="font-size: 0.95rem; color: var(--text-main); line-height: 1.5;">{{ eval.teacher_feedback }}</p>
+    </div>
+    {% endif %}
+
     <!-- AI Diagnostic Feedback Card -->
     <div class="glass-panel" style="padding: 26px; margin-bottom: 30px;">
         <h3 style="margin-bottom: 12px; color: var(--accent-color); font-size: 1.15rem;">
-            <i class="fas fa-robot me-2"></i> AI Diagnostic Feedback & Analysis
+            <i class="fas fa-robot me-2"></i> AI Diagnostic Feedback & Rationale
         </h3>
         <div style="background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; font-size: 0.95rem; line-height: 1.6; white-space: pre-line;">
             {{ eval.feedback }}

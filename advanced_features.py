@@ -133,29 +133,55 @@ def check_plagiarism_for_answer(answer_id: int) -> Dict:
 # ------------------------------------------------------------
 def generate_ai_rubric(question_text: str, max_marks: float = 10.0) -> Dict:
     """
-    Generates Model Answer, Keywords, Rubric Breakdown, and Bloom's Taxonomy Level automatically.
+    Generates Model Answer, Keywords, Rubric Breakdown, Bloom's Taxonomy Level,
+    Difficulty Rating, and Expected Word Length automatically.
     """
     q_lower = question_text.lower()
     
     if any(w in q_lower for w in ['explain', 'describe', 'discuss']):
-        blooms_level = "Level 2: Understanding & Comprehension"
+        blooms_level = "Remember / Understand"
     elif any(w in q_lower for w in ['compare', 'analyze', 'differentiate']):
-        blooms_level = "Level 4: Analyzing & Critical Thinking"
+        blooms_level = "Analyze"
     elif any(w in q_lower for w in ['calculate', 'solve', 'apply', 'implement']):
-        blooms_level = "Level 3: Applying & Problem Solving"
+        blooms_level = "Apply"
     elif any(w in q_lower for w in ['design', 'create', 'develop']):
-        blooms_level = "Level 6: Creating & Engineering"
+        blooms_level = "Create"
+    elif any(w in q_lower for w in ['define', 'what is', 'state', 'list']):
+        blooms_level = "Remember"
     else:
-        blooms_level = "Level 1: Remembering & Knowledge Retrieval"
+        blooms_level = "Understand"
+
+    # Difficulty calculation
+    if max_marks <= 5.0 and len(question_text.split()) < 10:
+        difficulty = "Easy"
+        expected_length = "30–60 words"
+        q_type = "Short Answer"
+    elif max_marks >= 10.0 or any(w in q_lower for w in ['differentiate', 'compare', 'design', 'detailed']):
+        difficulty = "Hard" if max_marks > 10 else "Medium"
+        expected_length = "80–150 words"
+        q_type = "Long Answer"
+    else:
+        difficulty = "Medium"
+        expected_length = "50–90 words"
+        q_type = "Short Answer"
 
     processed = ai_evaluator.preprocess_text(question_text)
     keywords_generated = ", ".join(list(dict.fromkeys(processed))[:8])
 
-    model_answer = (
-        f"A comprehensive technical answer for '{question_text}' involves defining core concepts, "
-        f"explaining structural properties ({keywords_generated}), stating time/space complexities, "
-        f"and providing illustrative examples with standard constraints."
-    )
+    # Model answer text generation logic
+    if "ai" in q_lower or "artificial intelligence" in q_lower:
+        model_answer = "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines programmed to think, reason, learn, and solve complex problems like humans."
+    elif "machine learning" in q_lower or "ml" in q_lower:
+        model_answer = "Machine Learning is a subfield of AI that enables systems to learn from data, identify patterns, and make decisions without explicit programming."
+    elif "binary search tree" in q_lower or "bst" in q_lower:
+        model_answer = "A Binary Search Tree is a node-based data structure where left subtree keys are smaller and right subtree keys are larger than the root. Average search complexity is O(log n)."
+    elif "acid" in q_lower:
+        model_answer = "ACID stands for Atomicity, Consistency, Isolation, and Durability, ensuring reliable database transaction processing."
+    else:
+        model_answer = (
+            f"A comprehensive reference answer for '{question_text}' should cover definition, key principles ({keywords_generated}), "
+            f"structural components, and accurate domain terminology."
+        )
 
     rubric = [
         {'criterion': 'Core Concept Definition & Accuracy', 'allocated_marks': round(max_marks * 0.40, 1)},
@@ -168,9 +194,13 @@ def generate_ai_rubric(question_text: str, max_marks: float = 10.0) -> Dict:
         'model_answer': model_answer,
         'keywords': keywords_generated,
         'blooms_level': blooms_level,
+        'difficulty': difficulty,
+        'expected_length': expected_length,
+        'question_type': q_type,
         'rubric': rubric,
         'max_marks': max_marks
     }
+
 
 
 # ------------------------------------------------------------

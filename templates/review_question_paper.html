@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Review & Edit Extracted Questions - ScoreMind AI{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 20px auto;">
+    <div class="glass-panel" style="padding: 30px; margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <span class="role-pill role-teacher" style="margin-bottom: 8px; display: inline-block;">
+                    Status: {{ paper.status|upper }}
+                </span>
+                <h2><i class="fas fa-list-check me-2" style="color:var(--primary-color);"></i> Review & Edit Extracted Questions</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">
+                    Exam: <strong>{{ paper.exam_name }}</strong> (Subject: {{ paper.subject.subject_name if paper.subject else 'General' }})
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <form method="POST" action="{{ url_for('teacher.generate_paper_rubrics', paper_id=paper.id) }}">
+                    <button type="submit" class="btn-secondary-custom" style="padding: 10px 18px; border-color: var(--primary-color); color: var(--primary-color);">
+                        <i class="fas fa-wand-magic-sparkles me-1"></i> Auto-Generate AI Model Answers & Rubrics
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('teacher.save_question_paper', paper_id=paper.id) }}">
+                    <button type="submit" class="btn-primary-custom" style="padding: 10px 22px;">
+                        <i class="fas fa-check-circle me-1"></i> Save & Create Exam
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Questions Table -->
+    <div class="table-container" style="margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3><i class="fas fa-tasks me-2" style="color:var(--primary-color);"></i> Extracted Questions List</h3>
+            <button onclick="document.getElementById('addQuestionModal').style.display='block'" class="btn-primary-custom" style="padding: 6px 14px; font-size: 0.85rem;">
+                <i class="fas fa-plus me-1"></i> Add Question
+            </button>
+        </div>
+
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th style="width: 70px;">Q.No</th>
+                    <th>Question Text</th>
+                    <th>Model Answer & AI Rubric</th>
+                    <th style="width: 80px;">Marks</th>
+                    <th style="width: 100px;">Difficulty</th>
+                    <th style="width: 110px;">Bloom Level</th>
+                    <th style="width: 110px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in questions %}
+                    <tr>
+                        <td><strong>{{ q.question_no or ('Q' ~ loop.index) }}</strong></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('teacher.update_paper_question', question_id=q.question_id) }}" id="form-q-{{ q.question_id }}">
+                                <input type="hidden" name="question_no" value="{{ q.question_no }}">
+                                <textarea name="question_text" class="form-control-custom" style="min-height: 70px; font-size: 0.85rem; width: 100%;" required>{{ q.question_text }}</textarea>
+                        </td>
+                        <td>
+                                <textarea name="model_answer" class="form-control-custom" style="min-height: 70px; font-size: 0.85rem; width: 100%;" placeholder="Model answer reference...">{{ q.model_answer or '' }}</textarea>
+                                <input type="text" name="keywords" class="form-control-custom" style="margin-top: 5px; font-size: 0.75rem;" placeholder="Keywords (e.g. node, binary tree)" value="{{ q.keywords or '' }}">
+                        </td>
+                        <td>
+                                <input type="number" step="0.5" name="max_marks" class="form-control-custom" style="font-size: 0.85rem; padding: 4px 8px;" value="{{ q.max_marks }}" required>
+                        </td>
+                        <td>
+                                <select name="difficulty" class="form-control-custom" style="font-size: 0.8rem; padding: 4px 6px;">
+                                    <option value="Easy" {% if q.difficulty == 'Easy' %}selected{% endif %}>Easy</option>
+                                    <option value="Medium" {% if q.difficulty == 'Medium' or not q.difficulty %}selected{% endif %}>Medium</option>
+                                    <option value="Hard" {% if q.difficulty == 'Hard' %}selected{% endif %}>Hard</option>
+                                </select>
+                        </td>
+                        <td>
+                                <select name="blooms_level" class="form-control-custom" style="font-size: 0.8rem; padding: 4px 6px;">
+                                    <option value="Remember" {% if 'Remember' in (q.blooms_level or '') %}selected{% endif %}>Remember</option>
+                                    <option value="Understand" {% if 'Understand' in (q.blooms_level or '') %}selected{% endif %}>Understand</option>
+                                    <option value="Apply" {% if 'Apply' in (q.blooms_level or '') %}selected{% endif %}>Apply</option>
+                                    <option value="Analyze" {% if 'Analyze' in (q.blooms_level or '') %}selected{% endif %}>Analyze</option>
+                                    <option value="Evaluate" {% if 'Evaluate' in (q.blooms_level or '') %}selected{% endif %}>Evaluate</option>
+                                    <option value="Create" {% if 'Create' in (q.blooms_level or '') %}selected{% endif %}>Create</option>
+                                </select>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 6px;">
+                                <button type="submit" class="btn-primary-custom" style="padding: 6px 10px; font-size: 0.75rem;" title="Save Edits">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('teacher.delete_paper_question', question_id=q.question_id) }}" onsubmit="return confirm('Delete this question?')">
+                                <button type="submit" class="btn-secondary-custom" style="padding: 6px 10px; font-size: 0.75rem; border-color: var(--danger-color); color: var(--danger-color);" title="Delete Question">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                            No questions extracted yet. Click "Add Question" to add manually or re-upload.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal to Add Question -->
+<div id="addQuestionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
+    <div class="glass-panel" style="max-width: 600px; margin: 80px auto; padding: 30px; position: relative;">
+        <button onclick="document.getElementById('addQuestionModal').style.display='none'" style="position: absolute; top: 15px; right: 20px; background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <h3 style="margin-bottom: 20px; color: var(--primary-color);">Add New Question</h3>
+
+        <form method="POST" action="{{ url_for('teacher.add_paper_question', paper_id=paper.id) }}">
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                <div class="form-group">
+                    <label>Q. Number</label>
+                    <input type="text" name="question_no" class="form-control-custom" placeholder="e.g. Q4" required>
+                </div>
+                <div class="form-group">
+                    <label>Marks</label>
+                    <input type="number" step="0.5" name="max_marks" class="form-control-custom" value="10.0" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Question Text</label>
+                <textarea name="question_text" class="form-control-custom" placeholder="Enter question prompt..." required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Model Answer (Optional - AI can generate)</label>
+                <textarea name="model_answer" class="form-control-custom" placeholder="Leave empty for AI auto-generation..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 12px;">
+                <i class="fas fa-plus-circle me-1"></i> Add Question to Paper
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

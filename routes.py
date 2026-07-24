@@ -3,8 +3,9 @@ from functools import wraps
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
-from models import db, User, Subject, Exam, Question, StudentAnswer, Evaluation
+from models import db, User, Subject, Exam, Question, StudentAnswer, Evaluation, QuestionPaper
 from ai_module import ai_evaluator
+from paper_parser import parse_question_paper_file
 from evaluation import evaluate_single_answer, evaluate_exam_answers
 from reports import generate_student_pdf_report, generate_exam_excel_report
 from config import Config
@@ -245,6 +246,7 @@ def dashboard():
     answers = StudentAnswer.query.filter(StudentAnswer.question_id.in_(q_ids)).all() if q_ids else []
     evaluations = Evaluation.query.filter(Evaluation.question_id.in_(q_ids)).all() if q_ids else []
     students = User.query.filter_by(role='student').all()
+    question_papers = QuestionPaper.query.filter_by(teacher_id=current_user.id).all() if current_user.role == 'teacher' else QuestionPaper.query.all()
 
     student_scores = {}
     for ev in evaluations:
@@ -274,9 +276,220 @@ def dashboard():
                            answers=answers,
                            evaluations=evaluations,
                            students=students,
+                           question_papers=question_papers,
                            top_students=top_students,
                            weak_topics=weak_topics,
                            all_teachers=all_teachers)
+
+# Question Paper Upload & Review Workflow Routes
+@teacher_bp.route('/question-paper/upload', methods=['GET', 'POST'])
+@login_required
+@teacher_required
+def upload_question_paper():
+    subjects = Subject.query.filter_by(teacher_id=current_user.id).all() if current_user.role == 'teacher' else Subject.query.all()
+    if request.method == 'POST':
+        exam_name = request.form.get('exam_name', '').strip()
+        subject_id = request.form.get('subject_id')
+        semester = request.form.get('semester', 'Semester 1')
+        file = request.files.get('paper_file')
+
+        if not exam_name or not subject_id or not file:
+            flash('Please fill in exam title, subject, and select a question paper file.', 'warning')
+            return redirect(url_for('teacher.upload_question_paper'))
+
+        filename = secure_filename(f"paper_u{current_user.id}_{file.filename}")
+        os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+        filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        paper = QuestionPaper(
+            teacher_id=current_user.id,
+            subject_id=subject_id,
+            exam_name=exam_name,
+            semester=semester,
+            pdf_path=filename,
+            status='draft'
+        )
+        db.session.add(paper)
+        db.session.commit()
+
+        # Extract questions automatically via paper_parser
+        extracted = parse_question_paper_file(filepath)
+        for item in extracted:
+            rubric = generate_ai_rubric(item['question_text'], item['marks'])
+            q = Question(
+                paper_id=paper.id,
+                question_no=item['question_no'],
+                question_text=item['question_text'],
+                model_answer=rubric['model_answer'],
+                keywords=rubric['keywords'],
+                max_marks=item['marks'],
+                question_type=item['question_type'],
+                difficulty=rubric['difficulty'],
+                blooms_level=rubric['blooms_level'],
+                expected_length=rubric['expected_length']
+            )
+            db.session.add(q)
+
+        db.session.commit()
+        flash(f'Question paper "{exam_name}" uploaded and {len(extracted)} questions extracted automatically via AI!', 'success')
+        return redirect(url_for('teacher.review_question_paper', paper_id=paper.id))
+
+    return render_template('upload_question_paper.html', subjects=subjects)
+
+@teacher_bp.route('/question-paper/review/<int:paper_id>')
+@login_required
+@teacher_required
+def review_question_paper(paper_id):
+    paper = db.session.get(QuestionPaper, paper_id)
+    if not paper:
+        flash('Question paper not found.', 'danger')
+        return redirect(url_for('teacher.dashboard'))
+    questions = Question.query.filter_by(paper_id=paper_id).all()
+    return render_template('review_question_paper.html', paper=paper, questions=questions)
+
+@teacher_bp.route('/question-paper/question/update/<int:question_id>', methods=['POST'])
+@login_required
+@teacher_required
+def update_paper_question(question_id):
+    q = db.session.get(Question, question_id)
+    if q:
+        q.question_text = request.form.get('question_text', q.question_text).strip()
+        q.model_answer = request.form.get('model_answer', q.model_answer).strip()
+        q.keywords = request.form.get('keywords', q.keywords).strip()
+        q.max_marks = float(request.form.get('max_marks') or q.max_marks)
+        q.difficulty = request.form.get('difficulty', q.difficulty)
+        q.blooms_level = request.form.get('blooms_level', q.blooms_level)
+        db.session.commit()
+        flash(f'Question {q.question_no} updated successfully.', 'success')
+        return redirect(url_for('teacher.review_question_paper', paper_id=q.paper_id))
+    return redirect(url_for('teacher.dashboard'))
+
+@teacher_bp.route('/question-paper/question/delete/<int:question_id>', methods=['POST'])
+@login_required
+@teacher_required
+def delete_paper_question(question_id):
+    q = db.session.get(Question, question_id)
+    if q:
+        paper_id = q.paper_id
+        db.session.delete(q)
+        db.session.commit()
+        flash('Question deleted.', 'info')
+        return redirect(url_for('teacher.review_question_paper', paper_id=paper_id))
+    return redirect(url_for('teacher.dashboard'))
+
+@teacher_bp.route('/question-paper/question/add/<int:paper_id>', methods=['POST'])
+@login_required
+@teacher_required
+def add_paper_question(paper_id):
+    paper = db.session.get(QuestionPaper, paper_id)
+    if paper:
+        q_no = request.form.get('question_no', 'Q1').strip()
+        q_text = request.form.get('question_text', '').strip()
+        model_ans = request.form.get('model_answer', '').strip()
+        max_m = float(request.form.get('max_marks') or 10.0)
+
+        rubric = generate_ai_rubric(q_text, max_m)
+        if not model_ans:
+            model_ans = rubric['model_answer']
+
+        q = Question(
+            paper_id=paper_id,
+            question_no=q_no,
+            question_text=q_text,
+            model_answer=model_ans,
+            keywords=rubric['keywords'],
+            max_marks=max_m,
+            difficulty=rubric['difficulty'],
+            blooms_level=rubric['blooms_level'],
+            expected_length=rubric['expected_length']
+        )
+        db.session.add(q)
+        db.session.commit()
+        flash('New question added to paper.', 'success')
+        return redirect(url_for('teacher.review_question_paper', paper_id=paper_id))
+    return redirect(url_for('teacher.dashboard'))
+
+@teacher_bp.route('/question-paper/generate-rubrics/<int:paper_id>', methods=['POST'])
+@login_required
+@teacher_required
+def generate_paper_rubrics(paper_id):
+    questions = Question.query.filter_by(paper_id=paper_id).all()
+    for q in questions:
+        rubric = generate_ai_rubric(q.question_text, q.max_marks)
+        if not q.model_answer:
+            q.model_answer = rubric['model_answer']
+        q.keywords = rubric['keywords']
+        q.difficulty = rubric['difficulty']
+        q.blooms_level = rubric['blooms_level']
+        q.expected_length = rubric['expected_length']
+    db.session.commit()
+    flash(f'Auto-generated AI Model Answers & Rubrics for {len(questions)} questions.', 'success')
+    return redirect(url_for('teacher.review_question_paper', paper_id=paper_id))
+
+@teacher_bp.route('/question-paper/save/<int:paper_id>', methods=['POST'])
+@login_required
+@teacher_required
+def save_question_paper(paper_id):
+    paper = db.session.get(QuestionPaper, paper_id)
+    if paper:
+        total_m = sum(q.max_marks for q in paper.questions) if paper.questions else 100.0
+        exam = Exam(
+            subject_id=paper.subject_id,
+            exam_name=paper.exam_name,
+            total_marks=total_m
+        )
+        db.session.add(exam)
+        db.session.commit()
+
+        for q in paper.questions:
+            q.exam_id = exam.exam_id
+
+        paper.status = 'published'
+        db.session.commit()
+        flash(f'Question paper "{paper.exam_name}" finalized and published as Exam #{exam.exam_id}!', 'success')
+    return redirect(url_for('teacher.dashboard'))
+
+# Teacher Verification & Overriding Marks Endpoint
+@teacher_bp.route('/evaluate/verify/<int:eval_id>', methods=['POST'])
+@login_required
+@teacher_required
+def verify_evaluation(eval_id):
+    eval_rec = db.session.get(Evaluation, eval_id)
+    if not eval_rec:
+        flash('Evaluation record not found.', 'danger')
+        return redirect(url_for('teacher.dashboard'))
+
+    action = request.form.get('action', 'accept')
+    if action == 'accept':
+        eval_rec.is_verified = True
+        eval_rec.status = 'verified'
+        flash(f'Accepted AI Marks ({eval_rec.obtained_marks}) for student evaluation #{eval_id}.', 'success')
+    elif action == 'override':
+        t_marks = float(request.form.get('teacher_marks') or eval_rec.obtained_marks)
+        t_feedback = request.form.get('teacher_feedback', '').strip()
+        eval_rec.teacher_marks = t_marks
+        eval_rec.teacher_feedback = t_feedback
+        eval_rec.is_verified = True
+        eval_rec.status = 'verified'
+        flash(f'Successfully updated verified marks ({t_marks}/{eval_rec.question.max_marks}) for evaluation #{eval_id}.', 'success')
+
+    db.session.commit()
+    return redirect(url_for('teacher.dashboard'))
+
+@teacher_bp.route('/evaluations/publish/<int:exam_id>', methods=['POST'])
+@login_required
+@teacher_required
+def publish_exam_results(exam_id):
+    questions = Question.query.filter_by(exam_id=exam_id).all()
+    q_ids = [q.question_id for q in questions]
+    evals = Evaluation.query.filter(Evaluation.question_id.in_(q_ids)).all() if q_ids else []
+    for ev in evals:
+        ev.status = 'published'
+        ev.is_verified = True
+    db.session.commit()
+    flash(f'Published {len(evals)} evaluation results for Exam #{exam_id}. Students can now view their scores.', 'success')
+    return redirect(url_for('teacher.dashboard'))
 
 @teacher_bp.route('/upload-script', methods=['GET', 'POST'])
 @teacher_bp.route('/upload-script/<int:question_id>', methods=['GET', 'POST'])

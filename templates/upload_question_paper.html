@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Question Paper - ScoreMind AI{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 20px auto;">
+    <div class="glass-panel" style="padding: 35px;">
+        <div style="margin-bottom: 25px;">
+            <a href="{{ url_for('teacher.dashboard') }}" style="color: var(--primary-color); text-decoration: none; font-size: 0.9rem;">
+                <i class="fas fa-arrow-left me-1"></i> Back to Teacher Dashboard
+            </a>
+            <h2 style="margin-top: 10px;">
+                <i class="fas fa-file-upload me-2" style="color: var(--primary-color);"></i> Step 1: Upload Question Paper
+            </h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Upload a scanned or digital Question Paper (PDF, DOCX, JPG, PNG, TXT). AI will automatically extract question text, numbers, marks, and question types for your review.
+            </p>
+        </div>
+
+        <form method="POST" action="{{ url_for('teacher.upload_question_paper') }}" enctype="multipart/form-data">
+            
+            <!-- Exam Title -->
+            <div class="form-group">
+                <label><i class="fas fa-file-signature me-1"></i> Exam Title *</label>
+                <input type="text" name="exam_name" class="form-control-custom" placeholder="e.g. Mid-Term Examination 2026" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Select Subject -->
+                <div class="form-group">
+                    <label><i class="fas fa-book me-1"></i> Subject *</label>
+                    <select name="subject_id" class="form-control-custom" required>
+                        <option value="">-- Choose Subject --</option>
+                        {% for s in subjects %}
+                            <option value="{{ s.subject_id }}">{{ s.subject_name }} ({{ s.subject_code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Semester -->
+                <div class="form-group">
+                    <label><i class="fas fa-graduation-cap me-1"></i> Semester</label>
+                    <select name="semester" class="form-control-custom">
+                        <option value="Semester 1">Semester 1</option>
+                        <option value="Semester 2">Semester 2</option>
+                        <option value="Semester 3">Semester 3</option>
+                        <option value="Semester 4">Semester 4</option>
+                        <option value="Semester 5">Semester 5</option>
+                        <option value="Semester 6">Semester 6</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Upload Question Paper File -->
+            <div class="form-group" style="margin-top: 15px;">
+                <label><i class="fas fa-file-pdf me-1"></i> Question Paper File (.pdf, .docx, .png, .jpg, .txt) *</label>
+                <input type="file" name="paper_file" class="form-control-custom" accept=".pdf,.docx,.png,.jpg,.jpeg,.txt" required onchange="validateFileInput(this)">
+                <small style="color: var(--text-muted); display: block; margin-top: 5px;">
+                    <i class="fas fa-magic me-1" style="color:var(--primary-color);"></i> OCR & NLP will extract Questions, Q.Nos, and Marks automatically.
+                </small>
+            </div>
+
+            <button type="submit" class="btn-primary-custom" style="width: 100%; justify-content: center; padding: 14px; margin-top: 20px; font-size: 1.05rem; box-shadow: 0 4px 20px rgba(0, 229, 255, 0.3);">
+                <i class="fas fa-wand-magic-sparkles me-2"></i> Upload & Extract Questions via AI
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
